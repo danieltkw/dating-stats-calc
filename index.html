@@ -1,0 +1,1960 @@
+<!DOCTYPE html>
+<html lang="pt" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador Demográfico & Otimizador Estocástico</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    :root {
+      --bg-page: #020617;
+      --bg-card: #0f172a;
+      --bg-subcard: #020617;
+      --border-color: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --chart-grid: #1e293b;
+    }
+    .light {
+      --bg-page: #f8fafc;
+      --bg-card: #ffffff;
+      --bg-subcard: #f1f5f9;
+      --border-color: #e2e8f0;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --chart-grid: #e2e8f0;
+    }
+    body {
+      background-color: var(--bg-page);
+      color: var(--text-main);
+      transition: background-color 0.2s ease, color 0.2s ease;
+    }
+    .theme-card {
+      background-color: var(--bg-card);
+      border-color: var(--border-color);
+    }
+    .theme-subcard {
+      background-color: var(--bg-subcard);
+      border-color: var(--border-color);
+    }
+    input[type=range] { accent-color: #0284c7; }
+    .geo-path {
+      transition: fill 0.2s ease, stroke 0.2s ease, filter 0.2s ease;
+      cursor: pointer;
+    }
+    .geo-path:hover {
+      filter: brightness(1.25) drop-shadow(0 0 8px rgba(56, 189, 248, 0.45));
+    }
+    .tab-btn.active {
+      border-color: #38bdf8;
+      color: #38bdf8;
+      background-color: rgba(56, 189, 248, 0.08);
+    }
+    .country-pill.active {
+      background-color: #0284c7;
+      border-color: #38bdf8;
+      color: #ffffff;
+      font-weight: 700;
+    }
+    .view-pill.active {
+      background-color: #38bdf8;
+      color: #020617;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body class="min-h-screen p-3 md:p-6 font-sans antialiased text-xs">
+
+  <div class="max-w-[1680px] mx-auto space-y-5">
+    
+    <!-- Cabeçalho -->
+    <header class="border-b theme-card pb-3 flex flex-col md:flex-row justify-between items-start md:items-end gap-3">
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="px-2 py-0.5 rounded bg-sky-500/10 border border-sky-500/30 text-sky-400 font-mono text-[10px] font-bold uppercase tracking-wider" id="txt-badge-header">Demografia Multipaís & Modelação Estocástica</span>
+          <span id="header-pop-badge" class="text-slate-500 text-[11px] font-mono">Portugal 2026 (N = 10.395.362) | 5 Escalões</span>
+        </div>
+        <h1 class="text-xl md:text-2xl font-bold tracking-tight mt-1" id="txt-title">Simulador Paramétrico & Otimizador Analítico de Relacionamento</h1>
+      </div>
+      
+      <!-- Controles de Configuração: Idioma, Tema e Reset -->
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="flex rounded border border-slate-700 bg-slate-800 p-0.5 text-[10px]">
+          <button onclick="setIdioma('pt')" id="btn-lang-pt" class="px-2 py-1 rounded font-bold text-white bg-blue-600">PT</button>
+          <button onclick="setIdioma('en')" id="btn-lang-en" class="px-2 py-1 rounded text-slate-300">EN</button>
+          <button onclick="setIdioma('es')" id="btn-lang-es" class="px-2 py-1 rounded text-slate-300">ES</button>
+        </div>
+
+        <button onclick="toggleTema()" id="btn-theme" class="px-3 py-1.5 rounded theme-card border hover:opacity-80 font-semibold transition flex items-center gap-1.5 text-[11px]">
+          <span id="theme-icon">🌙</span> <span id="theme-text">Escuro</span>
+        </button>
+
+        <button onclick="resetGlobal()" class="px-3 py-1.5 rounded bg-rose-950/40 border border-rose-700/50 hover:bg-rose-900/50 text-rose-300 font-semibold transition flex items-center gap-1.5 text-[11px]" id="txt-btn-reset">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+          Restaurar Padrão
+        </button>
+      </div>
+    </header>
+
+    <!-- Barra Seletora de País -->
+    <div class="theme-card border p-2 rounded-lg flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center gap-2">
+        <span class="text-[10px] uppercase font-bold text-slate-400 mr-2" id="txt-label-country">País Selecionado:</span>
+        <button id="btn-country-PT" onclick="selecionarPais('PT')" class="country-pill active px-4 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300 transition">
+          🇵🇹 Portugal (10.395.362)
+        </button>
+        <button id="btn-country-BR" onclick="selecionarPais('BR')" class="country-pill px-4 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300 transition">
+          🇧🇷 Brasil (213.562.666)
+        </button>
+      </div>
+      <div id="country-context-tag" class="text-[11px] font-mono text-sky-400">
+        Divisão: 7 Regiões NUTS II | Renda: 5 Quintis INE (20% cada)
+      </div>
+    </div>
+
+    <!-- Indicadores Principais (KPIs) -->
+    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+      <div class="theme-card border p-3 rounded-lg shadow-sm">
+        <span class="text-[10px] uppercase tracking-wider text-slate-400 block font-medium" id="txt-kpi-1">1. Pop. Territorial</span>
+        <div id="kpi-geo" class="text-lg md:text-xl font-bold mt-0.5 text-slate-200">0</div>
+        <span id="kpi-geo-pct" class="text-[10px] text-slate-500">100.0% nacional</span>
+      </div>
+
+      <div class="theme-card border p-3 rounded-lg shadow-sm">
+        <span class="text-[10px] uppercase tracking-wider text-slate-400 block font-medium" id="txt-kpi-2">2. Recorte Etário / Sexo</span>
+        <div id="kpi-demo" class="text-lg md:text-xl font-bold text-sky-400 mt-0.5">0</div>
+        <span id="kpi-demo-pct" class="text-[10px] text-slate-500">0.0% regional</span>
+      </div>
+
+      <div class="theme-card border p-3 rounded-lg shadow-sm">
+        <span class="text-[10px] uppercase tracking-wider text-slate-400 block font-medium" id="txt-kpi-3">3. Mercado em Apps</span>
+        <div id="kpi-apps" class="text-lg md:text-xl font-bold text-indigo-400 mt-0.5">0</div>
+        <span id="kpi-apps-pct" class="text-[10px] text-slate-500">0.0% residual</span>
+      </div>
+
+      <div class="theme-card border p-3 rounded-lg shadow-sm">
+        <span class="text-[10px] uppercase tracking-wider text-slate-400 block font-medium" id="txt-kpi-4">4. Compatibilidade Pessoal</span>
+        <div id="kpi-subjetivo" class="text-lg md:text-xl font-bold text-purple-400 mt-0.5">0</div>
+        <span id="kpi-subjetivo-pct" class="text-[10px] text-slate-500">Estética + Social + Gostos</span>
+      </div>
+
+      <div class="theme-card border p-3 rounded-lg shadow-sm">
+        <span class="text-[10px] uppercase tracking-wider text-slate-400 block font-medium" id="txt-kpi-5">5. Volume de Matches</span>
+        <div id="kpi-matches" class="text-lg md:text-xl font-bold text-amber-400 mt-0.5">0</div>
+        <span id="kpi-matches-pct" class="text-[10px] text-slate-500">Taxa via ELO</span>
+      </div>
+
+      <div class="theme-card border border-emerald-500/40 bg-emerald-950/20 p-3 rounded-lg shadow-sm">
+        <span class="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold block" id="txt-kpi-6">6. Alvo Final Duradouro</span>
+        <div id="kpi-final" class="text-lg md:text-xl font-bold text-emerald-400 mt-0.5">0</div>
+        <span id="kpi-final-pct" class="text-[10px] text-emerald-500">0.0000% pop. total</span>
+      </div>
+    </div>
+
+    <!-- Layout Principal -->
+    <div class="grid grid-cols-1 xl:grid-cols-12 gap-5">
+      
+      <!-- COLUNA DE CONTROLES (5 Colunas) -->
+      <div class="xl:col-span-5 space-y-4">
+        
+        <!-- Bloco 1: Demografia e Geografia -->
+        <div class="theme-card border p-4 rounded-lg space-y-3">
+          <div class="flex justify-between items-center border-b pb-2" style="border-color: var(--border-color)">
+            <span class="text-xs uppercase font-bold" id="txt-block-1-title">1. Identidade & Filtro Populacional</span>
+            <button onclick="resetSecao('demografia')" class="text-[10px] text-slate-400 hover:text-sky-400" id="txt-reset-b1">Reset Bloco</button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1" id="txt-label-self-gen">Género Autoidentificado</label>
+              <div class="grid grid-cols-2 gap-1.5">
+                <button type="button" onclick="setAutoGenero('male')" id="btn-auto-male" class="p-1.5 rounded border border-blue-600 bg-blue-600 text-white font-medium">Homem</button>
+                <button type="button" onclick="setAutoGenero('female')" id="btn-auto-female" class="p-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300">Mulher</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider text-slate-400 mb-1" id="txt-label-seek-gen">Género Procurado</label>
+              <div class="grid grid-cols-3 gap-1">
+                <button type="button" onclick="setAlvoGenero('female')" id="btn-alvo-female" class="p-1.5 rounded border border-blue-600 bg-blue-600 text-white font-medium">Mulher</button>
+                <button type="button" onclick="setAlvoGenero('male')" id="btn-alvo-male" class="p-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300">Homem</button>
+                <button type="button" onclick="setAlvoGenero('ambos')" id="btn-alvo-ambos" class="p-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300">Ambos</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Faixa Etária com Trava 18+ -->
+          <div class="space-y-1.5 pt-1">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] uppercase tracking-wider text-slate-400" id="txt-label-age-window">Janela Etária (Interpolada Ano a Ano)</span>
+              <div class="flex items-center gap-2">
+                <button type="button" id="btn-lock-18" onclick="toggleTrava18()" class="px-2 py-0.5 rounded border border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-[10px] font-semibold flex items-center gap-1 transition">
+                  <span id="lock-icon">🔒</span> <span id="lock-text">18+ Ativo</span>
+                </button>
+                <span id="label-idade" class="font-mono text-sky-400 font-bold">20 - 35 anos</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500 w-6">Min:</span>
+                <input type="range" id="idade-min" min="18" max="100" step="1" value="20" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarIdades('min')">
+                <span id="val-idade-min" class="font-mono text-slate-300 w-6 text-right">20</span>
+              </div>
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500 w-6">Max:</span>
+                <input type="range" id="idade-max" min="18" max="100" step="1" value="35" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarIdades('max')">
+                <span id="val-idade-max" class="font-mono text-slate-300 w-6 text-right">35</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 5 Escalões de Rendimento -->
+          <div class="space-y-1 pt-1 border-t" style="border-color: var(--border-color)">
+            <div class="flex justify-between items-center">
+              <span id="label-renda-titulo" class="text-[10px] uppercase tracking-wider text-slate-400">5 Escalões de Rendimento (INE)</span>
+              <span id="label-renda-fator" class="font-mono text-slate-400">100% elegível</span>
+            </div>
+            <div id="container-renda-escaloes" class="grid grid-cols-5 gap-1 text-[10px] text-center font-mono"></div>
+          </div>
+        </div>
+
+        <!-- Bloco 2: Métricas de Algoritmo & Perfil (SwipeStats) -->
+        <div class="theme-card border p-4 rounded-lg space-y-3">
+          <div class="flex justify-between items-center border-b pb-2" style="border-color: var(--border-color)">
+            <div class="flex items-center gap-2">
+              <span class="text-xs uppercase font-bold" id="txt-block-2-title">2. Algoritmo ELO & Configuração de Perfil</span>
+              <span id="badge-multiplicador" class="px-1.5 py-0.2 rounded bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 font-mono text-[9px] font-bold">1.00x Base</span>
+            </div>
+            <button onclick="resetSecao('perfil')" class="text-[10px] text-slate-400 hover:text-sky-400" id="txt-reset-b2">Reset Bloco</button>
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div class="space-y-1">
+              <span class="text-[10px] uppercase text-slate-400 block" id="txt-label-decile">Decil de Seletividade</span>
+              <select id="select-decil" onchange="alterarDecil(this.value)" class="w-full theme-subcard border rounded p-1 font-mono text-[11px]">
+                <option value="d1">Decil 1 - Máx. Seletivo (11.85%)</option>
+                <option value="d2">Decil 2 (7.35%)</option>
+                <option value="d3">Decil 3 (5.60%)</option>
+                <option value="d4">Decil 4 (4.34%)</option>
+                <option value="d5" selected>Decil 5 - Mediana (4.31%)</option>
+                <option value="d6">Decil 6 (4.18%)</option>
+                <option value="d7">Decil 7 (3.64%)</option>
+                <option value="d8">Decil 8 (3.76%)</option>
+                <option value="d9">Decil 9 (3.48%)</option>
+                <option value="d10">Decil 10 - Menos Seletivo (3.95%)</option>
+              </select>
+            </div>
+
+            <div class="space-y-1">
+              <span class="text-[10px] uppercase text-slate-400 block" id="txt-label-bio">Comprimento da Bio</span>
+              <select id="select-bio" onchange="alterarBio(this.value)" class="w-full theme-subcard border rounded p-1 font-mono text-[11px]">
+                <option value="short" selected>Curta (1-50 chars) [+31.6% MR]</option>
+                <option value="medium">Média (51-150 chars) [Base 5.22%]</option>
+                <option value="empty">Vazia (0 chars) [+2.3% MR]</option>
+                <option value="long">Longa (151-300 chars) [-23.9% MR]</option>
+                <option value="very_long">Muito Longa (300+ chars) [-24.1% MR]</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="space-y-1 pt-1 border-t" style="border-color: var(--border-color)">
+            <span class="text-[10px] uppercase tracking-wider text-slate-400 block" id="txt-label-vis-attr">Atributos Visíveis no Perfil (Impacto Empírico SwipeStats)</span>
+            <div class="grid grid-cols-2 gap-2 text-[10px]">
+              <label class="flex items-center gap-2 theme-subcard p-1.5 rounded cursor-pointer border" style="border-color: var(--border-color)">
+                <input type="checkbox" id="chk-no-job" checked onchange="alterarAtributoPerfil()" class="rounded border-slate-700 text-blue-600">
+                <span id="txt-chk-job">Ocultar Profissão (+38.5%)</span>
+              </label>
+              <label class="flex items-center gap-2 theme-subcard p-1.5 rounded cursor-pointer border" style="border-color: var(--border-color)">
+                <input type="checkbox" id="chk-no-edu" checked onchange="alterarAtributoPerfil()" class="rounded border-slate-700 text-blue-600">
+                <span id="txt-chk-edu">Ocultar Educação (+37.4%)</span>
+              </label>
+              <label class="flex items-center gap-2 theme-subcard p-1.5 rounded cursor-pointer border" style="border-color: var(--border-color)">
+                <input type="checkbox" id="chk-limit-hit" onchange="alterarAtributoPerfil()" class="rounded border-slate-700 text-blue-600">
+                <span id="txt-chk-limit">Nunca Esgota Likes (+80%)</span>
+              </label>
+              <label class="flex items-center gap-2 theme-subcard p-1.5 rounded cursor-pointer border" style="border-color: var(--border-color)">
+                <input type="checkbox" id="chk-timing-opt" checked onchange="alterarAtributoPerfil()" class="rounded border-slate-700 text-blue-600">
+                <span id="txt-chk-peak">Uso em Dias de Pico (+5%)</span>
+              </label>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2.5 pt-1 border-t" style="border-color: var(--border-color)">
+            <div class="space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="text-[9px] uppercase text-slate-400" id="txt-lbl-disp">Disponibilidade</span>
+                <span id="label-disp" class="font-mono text-sky-400 font-bold">33%</span>
+              </div>
+              <input type="range" id="slider-disp" min="0" max="100" step="1" value="33" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarDisp(this.value)">
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="text-[9px] uppercase text-slate-400" id="txt-lbl-apps">Adesão Apps</span>
+                <span id="label-apps" class="font-mono text-indigo-400 font-bold">20%</span>
+              </div>
+              <input type="range" id="slider-apps" min="1" max="100" step="1" value="20" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarApps(this.value)">
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between items-center">
+                <span class="text-[9px] uppercase text-slate-400" id="txt-lbl-longterm">Taxa Relacionamento Longo Prazo</span>
+                <span id="label-longterm" class="font-mono text-emerald-400 font-bold">20.0%</span>
+              </div>
+              <input type="range" id="slider-longterm" min="1" max="100" step="1" value="20" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarLongoPrazo(this.value)">
+            </div>
+          </div>
+
+          <div class="space-y-1 pt-1 border-t" style="border-color: var(--border-color)">
+            <div class="flex justify-between items-center">
+              <span class="text-[10px] uppercase text-slate-400" id="txt-lbl-matchrate">Match Rate Efetivo (Calculado / Manual)</span>
+              <span id="label-match" class="font-mono text-sky-400 font-bold">4.31%</span>
+            </div>
+            <input type="range" id="slider-match" min="0.1" max="65" step="0.1" value="4.31" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarMatchRate(this.value)">
+          </div>
+        </div>
+
+        <!-- Bloco 3: Filtros Subjetivos -->
+        <div class="theme-card border p-4 rounded-lg space-y-3">
+          <div class="flex justify-between items-center border-b pb-2" style="border-color: var(--border-color)">
+            <span class="text-xs uppercase font-bold" id="txt-block-3-title">3. Critérios de Afinidade & Compatibilidade</span>
+            <button onclick="resetSecao('pessoais')" class="text-[10px] text-slate-400 hover:text-sky-400" id="txt-reset-b3">Reset Bloco</button>
+          </div>
+
+          <div class="grid grid-cols-3 gap-2">
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <span class="text-slate-400" id="txt-lbl-beauty">Atrativo Físico</span>
+                <span id="label-estetica" class="font-mono text-pink-400 font-bold">25%</span>
+              </div>
+              <input type="range" id="slider-estetica" min="1" max="100" step="1" value="25" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarEstetica(this.value)">
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <span class="text-slate-400" id="txt-lbl-social">Socialização</span>
+                <span id="label-social" class="font-mono text-cyan-400 font-bold">40%</span>
+              </div>
+              <input type="range" id="slider-social" min="1" max="100" step="1" value="40" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarSocial(this.value)">
+            </div>
+            <div class="space-y-1">
+              <div class="flex justify-between items-center text-[10px]">
+                <span class="text-slate-400" id="txt-lbl-affinity">Afinidade</span>
+                <span id="label-gostos" class="font-mono text-purple-400 font-bold">20%</span>
+              </div>
+              <input type="range" id="slider-gostos" min="1" max="100" step="1" value="20" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarGostos(this.value)">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- VISUALIZAÇÃO CARTOGRÁFICA / CIDADE & ATRITO DINÂMICO (7 Colunas) -->
+      <div class="xl:col-span-7 space-y-4">
+        
+        <!-- Módulo de Geografia / Cidade -->
+        <div class="theme-card border p-4 rounded-lg space-y-3">
+          
+          <!-- Alternador: Mapa Regional vs. Sua Cidade -->
+          <div class="flex flex-wrap items-center justify-between border-b pb-2 gap-2" style="border-color: var(--border-color)">
+            <div class="flex items-center gap-1.5">
+              <button onclick="setModoVisao('mapa')" id="btn-view-map" class="view-pill active px-3 py-1 rounded text-[11px] font-semibold transition">
+                🗺️ Mapa Regional
+              </button>
+              <button onclick="setModoVisao('cidade')" id="btn-view-city" class="view-pill px-3 py-1 rounded text-[11px] text-slate-400 transition hover:text-white">
+                🏙️ Sua Cidade (População Local)
+              </button>
+            </div>
+            
+            <div id="map-controls-bar" class="space-x-2 text-[11px]">
+              <button onclick="toggleTodasRegioes(true)" class="text-sky-400 hover:underline" id="txt-btn-all-reg">Todas</button>
+              <span class="text-slate-600">|</span>
+              <button onclick="toggleTodasRegioes(false)" class="text-sky-400 hover:underline" id="txt-btn-none-reg">Nenhuma</button>
+            </div>
+          </div>
+
+          <!-- Conteúdo 1: Mapa SVG -->
+          <div id="container-view-map" class="w-full flex justify-center theme-subcard rounded border p-2" style="border-color: var(--border-color)">
+            <!-- MAPA PORTUGAL -->
+            <svg id="svg-map-PT" viewBox="0 0 520 600" class="w-full max-h-[320px] select-none">
+              <g transform="translate(15, 20)">
+                <rect width="125" height="90" fill="#090d16" stroke="#1e293b" stroke-width="1.5" rx="4" />
+                <text x="8" y="16" fill="#64748b" font-size="8" font-family="monospace">R. A. DOS AÇORES</text>
+                <path id="nuts-PT-PT20" class="geo-path" onclick="alternarRegiao('PT20')"
+                      d="M 25,60 C 30,50 40,48 48,53 C 58,58 70,45 80,48 C 92,52 105,65 115,55 C 118,65 105,75 95,70 C 80,65 65,75 45,72 Z" 
+                      fill="#0284c7" stroke="#0f172a" stroke-width="1.5" />
+                <text x="62" y="62" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">Açores (240k)</text>
+              </g>
+
+              <g transform="translate(15, 125)">
+                <rect width="125" height="90" fill="#090d16" stroke="#1e293b" stroke-width="1.5" rx="4" />
+                <text x="8" y="16" fill="#64748b" font-size="8" font-family="monospace">R. A. DA MADEIRA</text>
+                <path id="nuts-PT-PT30" class="geo-path" onclick="alternarRegiao('PT30')"
+                      d="M 30,55 C 45,45 75,42 90,52 C 100,58 102,68 88,74 C 70,82 45,78 32,68 Z" 
+                      fill="#0284c7" stroke="#0f172a" stroke-width="1.5" />
+                <circle cx="104" cy="45" r="4.5" fill="#0284c7" stroke="#0f172a" stroke-width="1.2" class="geo-path" onclick="alternarRegiao('PT30')" />
+                <text x="62" y="66" fill="#ffffff" font-size="9" font-weight="bold" text-anchor="middle" pointer-events="none">Madeira (250k)</text>
+              </g>
+
+              <path id="nuts-PT-PT11" class="geo-path" onclick="alternarRegiao('PT11')"
+                    d="M 285,42 C 295,30 325,28 350,32 C 380,36 415,35 440,55 C 455,68 470,95 470,120 C 470,140 445,155 425,160 C 395,168 360,158 335,164 C 305,172 278,168 262,160 C 260,135 264,105 272,75 C 276,58 280,48 285,42 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="1.8" />
+              <text x="365" y="105" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" pointer-events="none">Norte</text>
+
+              <path id="nuts-PT-PT16" class="geo-path" onclick="alternarRegiao('PT16')"
+                    d="M 262,160 C 278,168 305,172 335,164 C 360,158 395,168 425,160 C 445,155 470,140 470,120 C 475,150 480,185 475,225 C 470,265 450,290 415,302 C 375,315 330,312 295,315 C 270,318 248,310 242,285 C 246,250 252,215 258,185 C 260,172 261,165 262,160 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="1.8" />
+              <text x="360" y="235" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" pointer-events="none">Centro</text>
+
+              <path id="nuts-PT-PT17" class="geo-path" onclick="alternarRegiao('PT17')"
+                    d="M 242,310 C 260,315 272,328 270,355 C 268,380 255,405 235,405 C 215,405 210,375 218,348 C 222,330 230,315 242,310 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="1.8" />
+              <text x="180" y="360" fill="#ffffff" font-size="10" font-weight="bold" text-anchor="end" pointer-events="none">A.M. Lisboa</text>
+              <line x1="185" y1="363" x2="230" y2="360" stroke="#94a3b8" stroke-width="1.2" stroke-dasharray="2,2" />
+
+              <path id="nuts-PT-PT18" class="geo-path" onclick="alternarRegiao('PT18')"
+                    d="M 295,315 C 330,312 375,315 415,302 C 450,290 470,265 475,225 C 485,270 488,335 480,390 C 475,445 450,495 410,525 C 370,540 320,538 275,532 C 255,490 248,445 252,410 C 265,395 270,375 270,355 C 272,328 260,315 242,310 C 270,318 295,315 295,315 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="1.8" />
+              <text x="370" y="425" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" pointer-events="none">Alentejo</text>
+
+              <path id="nuts-PT-PT15" class="geo-path" onclick="alternarRegiao('PT15')"
+                    d="M 275,532 C 320,538 370,540 410,525 C 418,555 410,580 395,585 C 350,595 295,592 245,572 C 240,550 255,538 275,532 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="1.8" />
+              <text x="330" y="565" fill="#ffffff" font-size="11" font-weight="bold" text-anchor="middle" pointer-events="none">Algarve</text>
+            </svg>
+
+            <!-- MAPA BRASIL -->
+            <svg id="svg-map-BR" viewBox="0 0 520 520" class="w-full max-h-[320px] select-none hidden">
+              <path id="nuts-BR-NO" class="geo-path" onclick="alternarRegiao('NO')"
+                    d="M 60,140 C 90,80 160,50 220,60 C 260,65 300,90 310,140 C 310,180 270,220 220,230 C 180,240 140,240 90,210 C 60,190 50,160 60,140 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="2" />
+              <text x="180" y="145" fill="#ffffff" font-size="13" font-weight="bold" text-anchor="middle" pointer-events="none">Norte (18,7M)</text>
+
+              <path id="nuts-BR-NE" class="geo-path" onclick="alternarRegiao('NE')"
+                    d="M 310,140 C 340,110 390,120 440,150 C 470,180 460,230 420,270 C 380,290 350,280 330,250 C 315,220 310,180 310,140 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="2" />
+              <text x="385" y="195" fill="#ffffff" font-size="13" font-weight="bold" text-anchor="middle" pointer-events="none">Nordeste (57,1M)</text>
+
+              <path id="nuts-BR-CO" class="geo-path" onclick="alternarRegiao('CO')"
+                    d="M 180,240 C 220,230 270,220 310,235 C 320,270 310,320 280,350 C 240,360 200,340 180,310 C 170,280 170,250 180,240 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="2" />
+              <text x="245" y="290" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" pointer-events="none">C.-Oeste (17,6M)</text>
+
+              <path id="nuts-BR-SE" class="geo-path" onclick="alternarRegiao('SE')"
+                    d="M 310,235 C 330,250 350,280 380,290 C 410,320 400,370 360,400 C 320,410 290,390 280,350 C 310,320 320,270 310,235 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="2" />
+              <text x="345" y="340" fill="#ffffff" font-size="13" font-weight="bold" text-anchor="middle" pointer-events="none">Sudeste (89,1M)</text>
+
+              <path id="nuts-BR-SU" class="geo-path" onclick="alternarRegiao('SU')"
+                    d="M 240,360 C 280,350 290,390 320,410 C 310,450 270,500 230,490 C 200,470 210,410 240,360 Z"
+                    fill="#0284c7" stroke="#0f172a" stroke-width="2" />
+              <text x="260" y="440" fill="#ffffff" font-size="12" font-weight="bold" text-anchor="middle" pointer-events="none">Sul (31,1M)</text>
+            </svg>
+          </div>
+
+          <!-- Conteúdo 2: Simulador de Cidade / População Local -->
+          <div id="container-view-city" class="hidden space-y-4 theme-subcard rounded border p-4" style="border-color: var(--border-color)">
+            <div class="space-y-1">
+              <span class="text-xs font-bold uppercase text-sky-400 block" id="txt-city-header">Simular por Cidade ou População Local</span>
+              <p class="text-[11px] text-slate-400" id="txt-city-desc">
+                Escolha uma cidade da lista ou insira qualquer número de população para simular o seu concelho ou município utilizando o modelo etário e socioeconómico selecionado.
+              </p>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div class="space-y-1">
+                <span class="text-[10px] uppercase text-slate-400 block" id="txt-lbl-select-city">Cidades Sugeridas (Ordem Alfabética):</span>
+                <select id="select-city" onchange="selecionarCidadePreset(this.value)" class="w-full theme-card border rounded p-2 font-mono text-[11px]" style="border-color: var(--border-color)">
+                  <!-- Injetado dinamicamente -->
+                </select>
+              </div>
+
+              <div class="space-y-1">
+                <span class="text-[10px] uppercase text-slate-400 block" id="txt-lbl-custom-pop">População Local / Personalizada:</span>
+                <input type="number" id="input-city-pop" min="1000" max="50000000" step="500" value="545900" oninput="alterarPopCidadeManual(this.value)" class="w-full theme-card border rounded p-2 font-mono text-[11px] text-sky-400 font-bold" style="border-color: var(--border-color)">
+              </div>
+            </div>
+
+            <!-- Card Resumo da Cidade -->
+            <div class="theme-card border rounded p-3 flex items-center justify-between" style="border-color: var(--border-color)">
+              <div>
+                <span class="text-[9px] uppercase text-slate-500 block" id="txt-city-card-model">Modelo Demográfico Ativo</span>
+                <span id="city-model-name" class="font-bold text-slate-200">Portugal (INE / 5 Quintis)</span>
+              </div>
+              <div class="text-right">
+                <span class="text-[9px] uppercase text-slate-500 block" id="txt-city-card-pop">População Base Calculada</span>
+                <span id="city-pop-display" class="font-bold font-mono text-emerald-400 text-sm">545.900</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Secção de Atrito com Sliders Interativos -->
+        <div class="theme-card border p-4 rounded-lg space-y-3">
+          <div class="flex justify-between items-center">
+            <div>
+              <span class="text-xs uppercase font-bold" id="txt-title-attrition">Atrito Demográfico & Controlos de Arraste Direto</span>
+              <p class="text-[10px] text-slate-500" id="txt-desc-attrition">Arrasta qualquer uma das variáveis abaixo para recalibrar a cascata estocástica em tempo real.</p>
+            </div>
+            <span class="text-[10px] font-mono text-sky-400" id="txt-tag-bidir">Interligação Bidirecional</span>
+          </div>
+
+          <div style="position: relative; height: 190px; width: 100%;">
+            <canvas id="chartAtrito"></canvas>
+          </div>
+
+          <!-- Régua de Controlos Deslizantes Diretos -->
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-2.5 pt-2 border-t text-[10px]" style="border-color: var(--border-color)">
+            <div class="theme-subcard p-2 rounded border" style="border-color: var(--border-color)">
+              <div class="flex justify-between mb-1">
+                <span class="text-slate-400" id="txt-drag-disp">Disponibilidade</span>
+                <span id="drag-val-disp" class="font-mono text-sky-400 font-bold">33%</span>
+              </div>
+              <input type="range" id="drag-slider-disp" min="0" max="100" step="1" value="33" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarDisp(this.value)">
+            </div>
+
+            <div class="theme-subcard p-2 rounded border" style="border-color: var(--border-color)">
+              <div class="flex justify-between mb-1">
+                <span class="text-slate-400" id="txt-drag-apps">Adesão a Apps</span>
+                <span id="drag-val-apps" class="font-mono text-indigo-400 font-bold">20%</span>
+              </div>
+              <input type="range" id="drag-slider-apps" min="1" max="100" step="1" value="20" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarApps(this.value)">
+            </div>
+
+            <div class="theme-subcard p-2 rounded border" style="border-color: var(--border-color)">
+              <div class="flex justify-between mb-1">
+                <span class="text-slate-400" id="txt-drag-beauty">Filtro Estético</span>
+                <span id="drag-val-estetica" class="font-mono text-pink-400 font-bold">25%</span>
+              </div>
+              <input type="range" id="drag-slider-estetica" min="1" max="100" step="1" value="25" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarEstetica(this.value)">
+            </div>
+
+            <div class="theme-subcard p-2 rounded border" style="border-color: var(--border-color)">
+              <div class="flex justify-between mb-1">
+                <span class="text-slate-400" id="txt-drag-match">Taxa de Match</span>
+                <span id="drag-val-match" class="font-mono text-amber-400 font-bold">4.31%</span>
+              </div>
+              <input type="range" id="drag-slider-match" min="0.1" max="60" step="0.1" value="4.31" class="w-full h-1 bg-slate-700 rounded cursor-pointer" oninput="sincronizarMatchRate(this.value)">
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- ABA INFERIOR: ABAS ANALÍTICAS E GUIA DE BOAS-VINDAS -->
+    <div class="theme-card border rounded-lg overflow-hidden">
+      
+      <!-- Navegação das Abas -->
+      <div class="flex border-b theme-subcard overflow-x-auto" style="border-color: var(--border-color)">
+        <button onclick="mudarAba('bemvindo')" id="tab-bemvindo" class="tab-btn active px-4 py-2.5 font-bold uppercase tracking-wider text-[11px] border-b-2 border-transparent transition">
+          📖 Bem-vindo & Guia de Uso
+        </button>
+        <button onclick="mudarAba('probabilidade')" id="tab-probabilidade" class="tab-btn px-4 py-2.5 font-bold uppercase tracking-wider text-[11px] border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+          🎲 Modelação Probabilística
+        </button>
+        <button onclick="mudarAba('conversas')" id="tab-conversas" class="tab-btn px-4 py-2.5 font-bold uppercase tracking-wider text-[11px] border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+          💬 Funil de Mensagens & Ghosting
+        </button>
+        <button onclick="mudarAba('temporais')" id="tab-temporais" class="tab-btn px-4 py-2.5 font-bold uppercase tracking-wider text-[11px] border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+          📅 Padrões Temporais & Sazonalidade
+        </button>
+        <button onclick="mudarAba('swipestats')" id="tab-swipestats" class="tab-btn px-4 py-2.5 font-bold uppercase tracking-wider text-[11px] border-b-2 border-transparent text-slate-400 hover:text-slate-200 transition">
+          📊 Decis de Seletividade & Idades
+        </button>
+      </div>
+
+      <!-- Conteúdo da Aba 0: Bem-vindo & Guia -->
+      <div id="conteudo-bemvindo" class="p-5 space-y-4 leading-relaxed">
+        <div class="theme-subcard p-4 rounded border space-y-3" style="border-color: var(--border-color)">
+          <div class="flex items-center gap-2">
+            <span class="text-base">👋</span>
+            <h2 class="text-sm font-bold uppercase tracking-wider" id="txt-guide-title">O que é este simulador e para que serve?</h2>
+          </div>
+          <p class="text-[11px] text-slate-300" id="txt-guide-p1">
+            Esta aplicação é um <b>modelo estocástico-demográfico interativo</b> concebido para calcular o tamanho real do pool de potenciais parceiros(as) para relações duradouras a partir da aplicação sequencial de filtros geográficos, etários, socioeconómicos, comportamentais e algorítmicos.
+          </p>
+          <p class="text-[11px] text-slate-400" id="txt-guide-p2">
+            O objetivo não é fornecer suposições arbitrárias, mas antes contrastar a <b>pirâmide demográfica oficial</b> com a <b>realidade empírica dos algoritmos de dating apps</b> (baseado no estudo <i>SwipeStats.io</i> de 7.079 perfis reais com 294 milhões de swipes e 3,14 milhões de matches analisados entre 2020 e 2025)[cite: 34, 36].
+          </p>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div class="theme-subcard p-4 rounded border space-y-2" style="border-color: var(--border-color)">
+            <h3 class="text-xs font-bold text-sky-400 uppercase tracking-wider" id="txt-guide-h3-1">Bases de Dados Integradas</h3>
+            <ul class="space-y-1.5 text-[11px] text-slate-300 list-disc list-inside" id="txt-guide-ul">
+              <li><b>Portugal (2026):</b> 10.395.362 residentes divididos nas 7 regiões NUTS II oficiais e estratificados em 5 quintis de rendimento equivalente pelo INE (20% cada)[cite: 1, 28].</li>
+              <li><b>Brasil (2026):</b> 213.562.666 residentes nas 5 Macrorregiões do IBGE, divididos nos 5 escalões reais do Critério Brasil/FGV (Classe A: 4,4%, B: 15,0%, C: 31,2%, D: 28,6% e E: 20,8%)[cite: 28, 29].</li>
+              <li><b>Interpolação Unitária:</b> Distribuições quinquenais divididas ano a ano (0 a 100 anos) através de splines lineares de densidade contínua.</li>
+              <li><b>Comportamento Algorítmico:</b> Matrizes reais de penalização de ELO por aprovação indiscriminada, impacto de comprimento de biografia e modificadores visíveis de perfil (SwipeStats)[cite: 30, 43, 46].</li>
+            </ul>
+          </div>
+
+          <div class="theme-subcard p-4 rounded border space-y-2" style="border-color: var(--border-color)">
+            <h3 class="text-xs font-bold text-emerald-400 uppercase tracking-wider" id="txt-guide-h3-2">Como Usar o Modelo Passo a Passo</h3>
+            <ol class="space-y-1.5 text-[11px] text-slate-300 list-decimal list-inside" id="txt-guide-ol">
+              <li><b>Selecione o País ou a Cidade:</b> Use o alternador <code>[ 🗺️ Mapa Regional ]</code> ou <code>[ 🏙️ Sua Cidade ]</code> para simular uma região inteira ou focar especificamente numa cidade (ex.: Lisboa, Porto, São Paulo, Curitiba ou qualquer tamanho populacional manual)[cite: 28].</li>
+              <li><b>Trava de Maioridade (18+):</b> O botão <code>[ 🔒 18+ Ativo ]</code> impede a seleção de menores de idade no slider inferior[cite: 31].</li>
+              <li><b>Configure Perfil & ELO:</b> Altere o comprimento da bio, o decil de seletividade e os atributos de perfil. O indicador <code>[X.XXx Base]</code> mostra em tempo real o multiplicador resultante no seu match rate[cite: 45, 46].</li>
+              <li><b>Ajuste Rápido no Gráfico de Atrito:</b> Os 4 sliders logo abaixo do gráfico de barras permitem arrastar diretamente os valores em sincronia bidirecional com os painéis de controle.</li>
+              <li><b>Análise Estatística:</b> Navegue pelas abas ao lado para examinar cálculos de probabilidade binomial/geométrica, perdas por abandono de conversa e benchmarks de horário/idade[cite: 47, 49, 51].</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo da Aba 1: Probabilidade & Teoria -->
+      <div id="conteudo-probabilidade" class="p-5 hidden space-y-4">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="theme-subcard p-4 rounded border space-y-2" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold text-sky-400 uppercase tracking-wider block" id="txt-prob-c1-t">Distribuição Geométrica (Swipes até 1º Match)</span>
+            <p class="text-[11px] text-slate-400" id="txt-prob-c1-d">Número esperado de swipes para a direita até atingir exatamente 1 match (E[X] = 1/p):</p>
+            <div class="font-mono text-xl font-bold mt-1" id="stat-geo-swipes">0 swipes</div>
+            <p class="text-[10px] text-slate-500">Probabilidade de sucesso em até 50 swipes: <span id="stat-geo-50" class="text-emerald-400 font-bold">0%</span></p>
+          </div>
+
+          <div class="theme-subcard p-4 rounded border space-y-2" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold text-indigo-400 uppercase tracking-wider block" id="txt-prob-c2-t">Distribuição Binomial (Matches em 100 Swipes)</span>
+            <p class="text-[11px] text-slate-400" id="txt-prob-c2-d">Probabilidade de obter pelo menos 3 matches em uma sessão diária padrão de 100 swipes (P(X &ge; 3)):</p>
+            <div class="font-mono text-xl font-bold mt-1" id="stat-binom-p">0.0%</div>
+            <p class="text-[10px] text-slate-500">Valor esperado em 100 swipes: <span id="stat-binom-exp" class="text-sky-400 font-bold">0 matches</span></p>
+          </div>
+
+          <div class="theme-subcard p-4 rounded border space-y-2" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold text-purple-400 uppercase tracking-wider block" id="txt-prob-c3-t">Cadeia Estocástica de Conversão Final</span>
+            <p class="text-[11px] text-slate-400" id="txt-prob-c3-d">Probabilidade conjunta Bayesiana de converter um perfil do catálogo num parceiro duradouro:</p>
+            <div class="font-mono text-xl font-bold text-emerald-400 mt-1" id="stat-bayes-p">0.0000%</div>
+            <p class="text-[10px] text-slate-500">Rácio agregado: <span id="stat-bayes-ratio" class="text-amber-400 font-bold">1 em N</span></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo da Aba 2: Conversas & Ghosting -->
+      <div id="conteudo-conversas" class="p-5 hidden space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="theme-subcard p-4 rounded border" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold uppercase tracking-wider block mb-2" id="txt-conv-g1-t">Distribuição de Profundidade de Conversa (SwipeStats)</span>
+            <div style="position: relative; height: 200px; width: 100%;">
+              <canvas id="chartProfundidade"></canvas>
+            </div>
+          </div>
+          <div class="theme-subcard p-4 rounded border space-y-3" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold uppercase tracking-wider block" id="txt-conv-g2-t">Estatísticas de Ghosting & Comunicação</span>
+            <div class="grid grid-cols-2 gap-3 text-center">
+              <div class="theme-card p-2.5 rounded border" style="border-color: var(--border-color)">
+                <span class="text-[9px] uppercase text-slate-400 block" id="txt-conv-box1">Conversas de Apenas 1 Msg</span>
+                <span class="text-base font-bold text-amber-400 font-mono">32.83% (H) / 21.19% (M)</span>[cite: 50]
+              </div>
+              <div class="theme-card p-2.5 rounded border" style="border-color: var(--border-color)">
+                <span class="text-[9px] uppercase text-slate-400 block" id="txt-conv-box2">Conversas Profundas (11+ msgs)</span>
+                <span class="text-base font-bold text-emerald-400 font-mono">14.95% (H) / 13.49% (M)</span>[cite: 50]
+              </div>
+              <div class="theme-card p-2.5 rounded border" style="border-color: var(--border-color)">
+                <span class="text-[9px] uppercase text-slate-400 block" id="txt-conv-box3">Conexão Íntima (50+ msgs)</span>
+                <span class="text-base font-bold text-purple-400 font-mono">2.09% (H) / 1.84% (M)</span>[cite: 50]
+              </div>
+              <div class="theme-card p-2.5 rounded border" style="border-color: var(--border-color)">
+                <span class="text-[9px] uppercase text-slate-400 block" id="txt-conv-box4">Ghosting Após Envio</span>
+                <span class="text-base font-bold text-rose-400 font-mono">4.25% (H) / 11.53% (M)</span>[cite: 50]
+              </div>
+            </div>
+            <p class="text-[11px] text-slate-400 leading-relaxed" id="txt-conv-p">
+              O principal gargalo de comunicação pós-match reside no limiar da primeira mensagem: 43.4% de todos os matches masculinos terminam sem qualquer interação ou após uma única mensagem enviada[cite: 35, 49].
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo da Aba 3: Sazonalidade & Dias -->
+      <div id="conteudo-temporais" class="p-5 hidden space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="theme-subcard p-4 rounded border" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold uppercase tracking-wider block mb-2" id="txt-temp-g1-t">Desempenho por Dia da Semana (Match Rate %)</span>
+            <div style="position: relative; height: 180px; width: 100%;">
+              <canvas id="chartDias"></canvas>
+            </div>
+          </div>
+          <div class="theme-subcard p-4 rounded border" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold uppercase tracking-wider block mb-2" id="txt-temp-g2-t">Desempenho Mensal (Sazonalidade)</span>
+            <div style="position: relative; height: 180px; width: 100%;">
+              <canvas id="chartMeses"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Conteúdo da Aba 4: Decis de Seletividade -->
+      <div id="conteudo-swipestats" class="p-5 hidden space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="theme-subcard p-4 rounded border" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold uppercase tracking-wider block mb-2" id="txt-dec-g1-t">Decis de Seletividade: Swipe Right % vs Match Rate % (Homens)</span>
+            <div style="position: relative; height: 190px; width: 100%;">
+              <canvas id="chartDecis"></canvas>
+            </div>
+          </div>
+          <div class="theme-subcard p-4 rounded border" style="border-color: var(--border-color)">
+            <span class="text-xs font-bold uppercase tracking-wider block mb-2" id="txt-dec-g2-t">Faixa Etária vs Match Rate (Homens vs Mulheres)</span>
+            <div style="position: relative; height: 190px; width: 100%;">
+              <canvas id="chartIdadeMR"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- NOTAS DE RODAPÉ & REFERÊNCIAS -->
+    <footer class="theme-card border rounded-lg p-5 space-y-3" style="border-color: var(--border-color)">
+      <div class="flex items-center justify-between border-b pb-2" style="border-color: var(--border-color)">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-300" id="txt-fn-title">Notas de Rodapé & Referências Estatísticas</h3>
+        <span class="text-[10px] text-slate-500 font-mono">Fontes Oficiais & Estudos Empíricos</span>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 text-[11px] text-slate-400">
+        <div class="space-y-1">
+          <span class="font-bold text-slate-300 block">[1] Portugal: Demografia, Cidades & NUTS II</span>
+          <p>
+            INE Portugal & Eurostat (2026). Projeções de População Residente ($N = 10.395.362$) divididas em 21 coortes quinquenais. Classificação NUTS II segundo Regulamento (CE) n.º 1059/2003. População dos concelhos de Braga, Bragança, Coimbra, Lisboa e Porto obtida dos Censos Oficiais INE[cite: 1, 7, 28].
+          </p>
+          <a href="https://www.ine.pt" target="_blank" rel="noopener" class="text-sky-400 hover:underline block text-[10px] mt-0.5">ine.pt &bull; Instituto Nacional de Estatística</a>
+        </div>
+        <div class="space-y-1">
+          <span class="font-bold text-slate-300 block">[2] Brasil: População, Cidades & Renda</span>
+          <p>
+            IBGE - Censo Demográfico & Projeções Populacionais ($N = 213.562.666$). Dados populacionais municipais oficiais para Brasília, Curitiba, Rio de Janeiro, Salvador e São Paulo. Estratificação de classes (Classes A, B, C, D [28,6%] e E [20,8%]) pela FGV Social / ABEP[cite: 28, 29].
+          </p>
+          <a href="https://www.ibge.gov.br" target="_blank" rel="noopener" class="text-sky-400 hover:underline block text-[10px] mt-0.5">ibge.gov.br &bull; Instituto Brasileiro de Geografia e Estatística</a>
+        </div>
+        <div class="space-y-1">
+          <span class="font-bold text-slate-300 block">[3] Algoritmo & Métricas Empíricas de Dating Apps</span>
+          <p>
+            SwipeStats.io (2025/2026). <i>Tinder Statistics: Real Data from 7,079 Profiles (294M swipes, 3.1M matches)</i>. Distribuição por decis de seletividade, decaimento de conversa e penalização ELO por aprovação indiscriminada[cite: 34, 36, 42, 43].
+          </p>
+          <a href="https://www.swipestats.io/blog/tinder-statistics" target="_blank" rel="noopener" class="text-sky-400 hover:underline block text-[10px] mt-0.5">swipestats.io/blog/tinder-statistics &bull; SwipeStats Research</a>
+        </div>
+      </div>
+      <div class="pt-2 border-t text-[10px] text-slate-500 flex flex-col sm:flex-row justify-between items-center gap-2" style="border-color: var(--border-color)">
+        <span>Modelo probabilístico independente estocástico &bull; 2026</span>
+        <span>Interpolação contínua linear anual (0 a 100 anos)</span>
+      </div>
+    </footer>
+
+  </div>
+
+  <script>
+    // ==========================================
+    // 1. DICIONÁRIO DE TRADUÇÃO
+    // ==========================================
+    const DICIONARIO = {
+      pt: {
+        badgeHeader: "Demografia Multipaís & Modelação Estocástica",
+        title: "Simulador Paramétrico & Otimizador Analítico de Relacionamento",
+        btnReset: "Restaurar Padrão",
+        countryLabel: "País Selecionado:",
+        kpi1: "1. Pop. Territorial",
+        kpi2: "2. Recorte Etário / Sexo",
+        kpi3: "3. Mercado em Apps",
+        kpi4: "4. Compatibilidade Pessoal",
+        kpi5: "5. Volume de Matches",
+        kpi6: "6. Alvo Final Duradouro",
+        b1Title: "1. Identidade & Filtro Populacional",
+        resetB1: "Reset Bloco",
+        selfGen: "Género Autoidentificado",
+        seekGen: "Género Procurado",
+        man: "Homem",
+        woman: "Mulher",
+        both: "Ambos",
+        ageWindow: "Janela Etária (Interpolada Ano a Ano)",
+        lockActive: "18+ Ativo",
+        lockFree: "0+ Livre",
+        b2Title: "2. Algoritmo ELO & Configuração de Perfil",
+        resetB2: "Reset Bloco",
+        decileLabel: "Decil de Seletividade",
+        bioLabel: "Comprimento da Bio",
+        visAttr: "Atributos Visíveis no Perfil (Impacto Empírico SwipeStats)",
+        chkJob: "Ocultar Profissão (+38.5%)",
+        chkEdu: "Ocultar Educação (+37.4%)",
+        chkLimit: "Nunca Esgota Likes (+80%)",
+        chkPeak: "Uso em Dias de Pico (+5%)",
+        lblDisp: "Disponibilidade",
+        lblApps: "Adesão Apps",
+        lblLongterm: "Taxa Relacionamento Longo Prazo",
+        lblMatch: "Match Rate Efetivo (Calculado / Manual)",
+        b3Title: "3. Critérios de Afinidade & Compatibilidade",
+        resetB3: "Reset Bloco",
+        lblBeauty: "Atrativo Físico",
+        lblSocial: "Socialização",
+        lblAffinity: "Afinidade",
+        btnAllReg: "Todas",
+        btnNoneReg: "Nenhuma",
+        titleAttr: "Atrito Demográfico & Controlos de Arraste Direto",
+        descAttr: "Arrasta qualquer uma das variáveis abaixo para recalibrar a cascata estocástica em tempo real.",
+        tagBidir: "Interligação Bidirecional",
+        fnTitle: "Notas de Rodapé & Referências Estatísticas",
+        tabWelcome: "📖 Bem-vindo & Guia de Uso",
+        tabProb: "🎲 Modelação Probabilística",
+        tabConv: "💬 Funil de Mensagens & Ghosting",
+        tabTemp: "📅 Padrões Temporais & Sazonalidade",
+        tabDeciles: "📊 Decis de Seletividade & Idades"
+      },
+      en: {
+        badgeHeader: "Multi-Country Demographics & Stochastic Modeling",
+        title: "Parametric Demographic Simulator & Dating Funnel Optimizer",
+        btnReset: "Reset Default",
+        countryLabel: "Selected Country:",
+        kpi1: "1. Territorial Pop.",
+        kpi2: "2. Age / Gender Slice",
+        kpi3: "3. App Dating Market",
+        kpi4: "4. Personal Criteria",
+        kpi5: "5. Match Volume",
+        kpi6: "6. Final Long-Term Target",
+        b1Title: "1. Identity & Demographic Filter",
+        resetB1: "Reset Section",
+        selfGen: "Your Gender",
+        seekGen: "Seeking Gender",
+        man: "Man",
+        woman: "Woman",
+        both: "Both",
+        ageWindow: "Age Window (Annual Interpolation)",
+        lockActive: "18+ Active",
+        lockFree: "0+ Free",
+        b2Title: "2. ELO Algorithm & Profile Optimization",
+        resetB2: "Reset Section",
+        decileLabel: "Selectivity Decile",
+        bioLabel: "Bio Length",
+        visAttr: "Visible Profile Features (Empirical SwipeStats Impact)",
+        chkJob: "Hide Job Title (+38.5%)",
+        chkEdu: "Hide Education (+37.4%)",
+        chkLimit: "Never Hit Daily Limits (+80%)",
+        chkPeak: "Peak Days Usage (+5%)",
+        lblDisp: "Availability",
+        lblApps: "App Adoption",
+        lblLongterm: "Long-Term Relationship Rate",
+        lblMatch: "Effective Match Rate (Calculated / Manual)",
+        b3Title: "3. Affinity & Compatibility Filters",
+        resetB3: "Reset Section",
+        lblBeauty: "Physical Attraction",
+        lblSocial: "Agreeableness",
+        lblAffinity: "Common Interests",
+        btnAllReg: "All",
+        btnNoneReg: "None",
+        titleAttr: "Demographic Funnel & Direct Drag Sliders",
+        descAttr: "Drag any parameter below to recalculate the stochastic funnel in real-time.",
+        tagBidir: "Bidirectional Sync",
+        fnTitle: "Footnotes & Statistical References",
+        tabWelcome: "📖 Welcome & User Guide",
+        tabProb: "🎲 Probability Modeling",
+        tabConv: "💬 Messaging & Ghosting Funnel",
+        tabTemp: "📅 Temporal Patterns & Seasonality",
+        tabDeciles: "📊 Selectivity Deciles & Age"
+      },
+      es: {
+        badgeHeader: "Demografía Multinacional y Modelado Estocástico",
+        title: "Simulador Paramétrico y Optimizador Analítico de Citas",
+        btnReset: "Restablecer",
+        countryLabel: "País Seleccionado:",
+        kpi1: "1. Pob. Territorial",
+        kpi2: "2. Rango Edad / Género",
+        kpi3: "3. Mercado en Apps",
+        kpi4: "4. Filtro Personal",
+        kpi5: "5. Volumen de Matches",
+        kpi6: "6. Objetivo a Largo Plazo",
+        b1Title: "1. Identidad y Filtro Poblacional",
+        resetB1: "Reiniciar",
+        selfGen: "Género Propio",
+        seekGen: "Género Buscado",
+        man: "Hombre",
+        woman: "Mujer",
+        both: "Ambos",
+        ageWindow: "Rango de Edad (Interpolación Anual)",
+        lockActive: "18+ Activo",
+        lockFree: "0+ Libre",
+        b2Title: "2. Algoritmo ELO y Configuración de Perfil",
+        resetB2: "Reiniciar",
+        decileLabel: "Decil de Selectividad",
+        bioLabel: "Longitud de Biografía",
+        visAttr: "Atributos del Perfil (Impacto Empírico SwipeStats)",
+        chkJob: "Ocultar Profesión (+38.5%)",
+        chkEdu: "Ocultar Educación (+37.4%)",
+        chkLimit: "Sin Límite de Likes (+80%)",
+        chkPeak: "Uso en Días Pico (+5%)",
+        lblDisp: "Disponibilidad",
+        lblApps: "Uso de Apps",
+        lblLongterm: "Tasa Relación a Largo Plazo",
+        lblMatch: "Tasa de Match (Calculada / Manual)",
+        b3Title: "3. Criterios de Afinidad y Compatibilidad",
+        resetB3: "Reiniciar",
+        lblBeauty: "Atracción Física",
+        lblSocial: "Sociabilidad",
+        lblAffinity: "Afinidad Mutua",
+        btnAllReg: "Todas",
+        btnNoneReg: "Ninguna",
+        titleAttr: "Embudo Demográfico y Controles Deslizantes",
+        descAttr: "Arrastra cualquier variable para recalcular la cascada estocástica en tiempo real.",
+        tagBidir: "Enlace Bidireccional",
+        fnTitle: "Notas al Pie y Referencias Estadísticas",
+        tabWelcome: "📖 Bienvenida y Manual",
+        tabProb: "🎲 Modelado Probabilístico",
+        tabConv: "💬 Embudo de Mensajes y Ghosting",
+        tabTemp: "📅 Patrones Temporales",
+        tabDeciles: "📊 Deciles y Rango de Edad"
+      }
+    };
+
+    let idiomaAtual = "pt";
+
+    function setIdioma(lang) {
+      idiomaAtual = lang;
+      ['pt', 'en', 'es'].forEach(l => {
+        const btn = document.getElementById(`btn-lang-${l}`);
+        if (l === lang) {
+          btn.className = "px-2 py-1 rounded font-bold text-white bg-blue-600";
+        } else {
+          btn.className = "px-2 py-1 rounded text-slate-300";
+        }
+      });
+
+      const d = DICIONARIO[lang];
+      document.getElementById("txt-badge-header").innerText = d.badgeHeader;
+      document.getElementById("txt-title").innerText = d.title;
+      document.getElementById("txt-btn-reset").innerHTML = `<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg> ${d.btnReset}`;
+      document.getElementById("txt-label-country").innerText = d.countryLabel;
+      document.getElementById("txt-kpi-1").innerText = d.kpi1;
+      document.getElementById("txt-kpi-2").innerText = d.kpi2;
+      document.getElementById("txt-kpi-3").innerText = d.kpi3;
+      document.getElementById("txt-kpi-4").innerText = d.kpi4;
+      document.getElementById("txt-kpi-5").innerText = d.kpi5;
+      document.getElementById("txt-kpi-6").innerText = d.kpi6;
+
+      document.getElementById("txt-block-1-title").innerText = d.b1Title;
+      document.getElementById("txt-reset-b1").innerText = d.resetB1;
+      document.getElementById("txt-label-self-gen").innerText = d.selfGen;
+      document.getElementById("txt-label-seek-gen").innerText = d.seekGen;
+      document.getElementById("btn-auto-male").innerText = d.man;
+      document.getElementById("btn-auto-female").innerText = d.woman;
+      document.getElementById("btn-alvo-female").innerText = d.woman;
+      document.getElementById("btn-alvo-male").innerText = d.man;
+      document.getElementById("btn-alvo-ambos").innerText = d.both;
+      document.getElementById("txt-label-age-window").innerText = d.ageWindow;
+      document.getElementById("lock-text").innerText = estado.trava18 ? d.lockActive : d.lockFree;
+
+      document.getElementById("txt-block-2-title").innerText = d.b2Title;
+      document.getElementById("txt-reset-b2").innerText = d.resetB2;
+      document.getElementById("txt-label-decile").innerText = d.decileLabel;
+      document.getElementById("txt-label-bio").innerText = d.bioLabel;
+      document.getElementById("txt-label-vis-attr").innerText = d.visAttr;
+      document.getElementById("txt-chk-job").innerText = d.chkJob;
+      document.getElementById("txt-chk-edu").innerText = d.chkEdu;
+      document.getElementById("txt-chk-limit").innerText = d.chkLimit;
+      document.getElementById("txt-chk-peak").innerText = d.chkPeak;
+      document.getElementById("txt-lbl-disp").innerText = d.lblDisp;
+      document.getElementById("txt-lbl-apps").innerText = d.lblApps;
+      document.getElementById("txt-lbl-longterm").innerText = d.lblLongterm;
+      document.getElementById("txt-lbl-matchrate").innerText = d.lblMatch;
+
+      document.getElementById("txt-block-3-title").innerText = d.b3Title;
+      document.getElementById("txt-reset-b3").innerText = d.resetB3;
+      document.getElementById("txt-lbl-beauty").innerText = d.lblBeauty;
+      document.getElementById("txt-lbl-social").innerText = d.lblSocial;
+      document.getElementById("txt-lbl-affinity").innerText = d.lblAffinity;
+
+      document.getElementById("txt-btn-all-reg").innerText = d.btnAllReg;
+      document.getElementById("txt-btn-none-reg").innerText = d.btnNoneReg;
+      document.getElementById("txt-title-attrition").innerText = d.titleAttr;
+      document.getElementById("txt-desc-attrition").innerText = d.descAttr;
+      document.getElementById("txt-tag-bidir").innerText = d.tagBidir;
+
+      document.getElementById("txt-drag-disp").innerText = d.lblDisp;
+      document.getElementById("txt-drag-apps").innerText = d.lblApps;
+      document.getElementById("txt-drag-beauty").innerText = d.lblBeauty;
+      document.getElementById("txt-drag-match").innerText = "Match Rate";
+
+      document.getElementById("tab-bemvindo").innerText = d.tabWelcome;
+      document.getElementById("tab-probabilidade").innerText = d.tabProb;
+      document.getElementById("tab-conversas").innerText = d.tabConv;
+      document.getElementById("tab-temporais").innerText = d.tabTemp;
+      document.getElementById("tab-swipestats").innerText = d.tabDeciles;
+
+      document.getElementById("txt-fn-title").innerText = d.fnTitle;
+
+      selecionarPais(paisAtivo);
+    }
+
+    // ==========================================
+    // 2. ALTERNADOR DE TEMA
+    // ==========================================
+    let temaEscuro = true;
+    function toggleTema() {
+      temaEscuro = !temaEscuro;
+      const htmlEl = document.documentElement;
+      const icon = document.getElementById("theme-icon");
+      const text = document.getElementById("theme-text");
+
+      if (temaEscuro) {
+        htmlEl.classList.remove("light");
+        htmlEl.classList.add("dark");
+        icon.innerText = "🌙";
+        text.innerText = idiomaAtual === 'en' ? "Dark" : (idiomaAtual === 'es' ? "Oscuro" : "Escuro");
+      } else {
+        htmlEl.classList.remove("dark");
+        htmlEl.classList.add("light");
+        icon.innerText = "☀";
+        text.innerText = idiomaAtual === 'en' ? "Light" : (idiomaAtual === 'es' ? "Claro" : "Claro");
+      }
+
+      atualizarCoresGraficosTema();
+    }
+
+    function atualizarCoresGraficosTema() {
+      const gridColor = temaEscuro ? "#1e293b" : "#e2e8f0";
+      const tickColor = temaEscuro ? "#64748b" : "#475569";
+
+      [chartAtritoInstance, chartProfundidadeInstance, chartDiasInstance, chartMesesInstance, chartDecisInstance, chartIdadeMRInstance].forEach(chart => {
+        if (chart) {
+          if (chart.options.scales.x && chart.options.scales.x.ticks) chart.options.scales.x.ticks.color = tickColor;
+          if (chart.options.scales.y && chart.options.scales.y.ticks) chart.options.scales.y.ticks.color = tickColor;
+          if (chart.options.scales.y && chart.options.scales.y.grid) chart.options.scales.y.grid.color = gridColor;
+          chart.update();
+        }
+      });
+    }
+
+    // ==========================================
+    // 3. BASES DEMOGRÁFICAS & CIDADES SUGERIDAS
+    // ==========================================
+    const COORTES_PT = [
+      { f: "0-4", min: 0, max: 4, m: 2.1, w: 2.0 },
+      { f: "5-9", min: 5, max: 9, m: 2.2, w: 2.1 },
+      { f: "10-14", min: 10, max: 14, m: 2.2, w: 2.1 },
+      { f: "15-19", min: 15, max: 19, m: 2.5, w: 2.4 },
+      { f: "20-24", min: 20, max: 24, m: 2.8, w: 2.7 },
+      { f: "25-29", min: 25, max: 29, m: 2.8, w: 2.7 },
+      { f: "30-34", min: 30, max: 34, m: 2.7, w: 2.6 },
+      { f: "35-39", min: 35, max: 39, m: 2.7, w: 2.7 },
+      { f: "40-44", min: 40, max: 44, m: 3.0, w: 3.2 },
+      { f: "45-49", min: 45, max: 49, m: 3.5, w: 3.8 },
+      { f: "50-54", min: 50, max: 54, m: 3.7, w: 4.0 },
+      { f: "55-59", min: 55, max: 59, m: 3.4, w: 3.8 },
+      { f: "60-64", min: 60, max: 64, m: 3.3, w: 3.8 },
+      { f: "65-69", min: 65, max: 69, m: 3.0, w: 3.6 },
+      { f: "70-74", min: 70, max: 74, m: 2.7, w: 3.3 },
+      { f: "75-79", min: 75, max: 79, m: 2.3, w: 2.9 },
+      { f: "80-84", min: 80, max: 84, m: 1.5, w: 2.2 },
+      { f: "85-89", min: 85, max: 89, m: 0.9, w: 1.5 },
+      { f: "90-94", min: 90, max: 94, m: 0.3, w: 0.8 },
+      { f: "95-99", min: 95, max: 99, m: 0.1, w: 0.2 },
+      { f: "100+", min: 100, max: 100, m: 0.02, w: 0.03 }
+    ];
+
+    const COORTES_BR = [
+      { f: "0-4", min: 0, max: 4, m: 3.1, w: 2.9 },
+      { f: "5-9", min: 5, max: 9, m: 3.3, w: 3.1 },
+      { f: "10-14", min: 10, max: 14, m: 3.4, w: 3.2 },
+      { f: "15-19", min: 15, max: 19, m: 3.6, w: 3.4 },
+      { f: "20-24", min: 20, max: 24, m: 3.9, w: 3.7 },
+      { f: "25-29", min: 25, max: 29, m: 4.0, w: 3.9 },
+      { f: "30-34", min: 30, max: 34, m: 3.9, w: 3.9 },
+      { f: "35-39", min: 35, max: 39, m: 3.9, w: 4.0 },
+      { f: "40-44", min: 40, max: 44, m: 3.7, w: 3.9 },
+      { f: "45-49", min: 45, max: 49, m: 3.4, w: 3.7 },
+      { f: "50-54", min: 50, max: 54, m: 3.1, w: 3.4 },
+      { f: "55-59", min: 55, max: 59, m: 2.8, w: 3.2 },
+      { f: "60-64", min: 60, max: 64, m: 2.4, w: 2.8 },
+      { f: "65-69", min: 65, max: 69, m: 1.9, w: 2.3 },
+      { f: "70-74", min: 70, max: 74, m: 1.4, w: 1.8 },
+      { f: "75-79", min: 75, max: 79, m: 1.0, w: 1.4 },
+      { f: "80-84", min: 80, max: 84, m: 0.6, w: 0.9 },
+      { f: "85-89", min: 85, max: 89, m: 0.3, w: 0.5 },
+      { f: "90-94", min: 90, max: 94, m: 0.1, w: 0.2 },
+      { f: "95-99", min: 95, max: 99, m: 0.05, w: 0.08 },
+      { f: "100+", min: 100, max: 100, m: 0.01, w: 0.02 }
+    ];
+
+    function interpolarCoortes(coortes) {
+      const res = [];
+      for (let ano = 0; ano <= 100; ano++) {
+        const c = coortes.find(item => ano >= item.min && ano <= item.max) || coortes[coortes.length - 1];
+        const span = (c.max - c.min + 1);
+        res.push({
+          idade: ano,
+          m_pct: c.m / span,
+          w_pct: c.w / span
+        });
+      }
+      return res;
+    }
+
+    const DADOS_ANUAIS_PT = interpolarCoortes(COORTES_PT);
+    const DADOS_ANUAIS_BR = interpolarCoortes(COORTES_BR);
+
+    // 10 Cidades Sugeridas (5 PT e 5 BR) em estrita ordem alfabética
+    const CIDADES_PRESET = {
+      PT: [
+        { nome: "Braga", pop: 193300 },
+        { nome: "Bragança", pop: 34600 },
+        { nome: "Coimbra", pop: 140800 },
+        { nome: "Lisboa", pop: 545900 },
+        { nome: "Porto", pop: 231800 }
+      ],
+      BR: [
+        { nome: "Brasília", pop: 2817000 },
+        { nome: "Curitiba", pop: 1773700 },
+        { nome: "Rio de Janeiro", pop: 6211000 },
+        { nome: "Salvador", pop: 2418000 },
+        { nome: "São Paulo", pop: 11451000 }
+      ]
+    };
+
+    const PAISES = {
+      "PT": {
+        nome: "Portugal",
+        populacaoTotal: 10395362,
+        dadosAnuais: DADOS_ANUAIS_PT,
+        contextTag: "Divisão: 7 Regiões NUTS II | Renda: 5 Quintis INE (20% cada)",
+        regioes: {
+          "PT11": { nome: "Norte", pop: 3585400, ativa: true },
+          "PT16": { nome: "Centro", pop: 2225000, ativa: true },
+          "PT17": { nome: "Área Metropolitana de Lisboa", pop: 2920000, ativa: true },
+          "PT18": { nome: "Alentejo", pop: 705000, ativa: true },
+          "PT15": { nome: "Algarve", pop: 470000, ativa: true },
+          "PT20": { nome: "R. A. dos Açores", pop: 240000, ativa: true },
+          "PT30": { nome: "R. A. da Madeira", pop: 249962, ativa: true }
+        },
+        escaloesRenda: [
+          { id: "q1", rotulo: "1º Q", desc: "1º Quintil (Muito Baixa - 20%)", val: 0.20 },
+          { id: "q2", rotulo: "2º Q", desc: "2º Quintil (Baixa - 20%)", val: 0.20 },
+          { id: "q3", rotulo: "3º Q", desc: "3º Quintil (Média - 20%)", val: 0.20 },
+          { id: "q4", rotulo: "4º Q", desc: "4º Quintil (Alta - 20%)", val: 0.20 },
+          { id: "q5", rotulo: "5º Q", desc: "5º Quintil (Muito Alta - 20%)", val: 0.20 }
+        ]
+      },
+      "BR": {
+        nome: "Brasil",
+        populacaoTotal: 213562666,
+        dadosAnuais: DADOS_ANUAIS_BR,
+        contextTag: "Divisão: 5 Grandes Regiões | Renda: Classes A, B, C, D e E (FGV/ABEP)",
+        regioes: {
+          "NO": { nome: "Norte", pop: 18670000, ativa: true },
+          "NE": { nome: "Nordeste", pop: 57100000, ativa: true },
+          "CO": { nome: "Centro-Oeste", pop: 17602666, ativa: true },
+          "SE": { nome: "Sudeste", pop: 89050000, ativa: true },
+          "SU": { nome: "Sul", pop: 31140000, ativa: true }
+        },
+        escaloesRenda: [
+          { id: "cla_e", rotulo: "Cl. E", desc: "Classe E (Até 2 SM - 20,8%)", val: 0.208 },
+          { id: "cla_d", rotulo: "Cl. D", desc: "Classe D (2 a 4 SM - 28,6%)", val: 0.286 },
+          { id: "cla_c", rotulo: "Cl. C", desc: "Classe C (4 a 10 SM - 31,2%)", val: 0.312 },
+          { id: "cla_b", rotulo: "Cl. B", desc: "Classe B (10 a 20 SM - 15,0%)", val: 0.150 },
+          { id: "cla_a", rotulo: "Cl. A", desc: "Classe A (> 20 SM - 4,4%)", val: 0.044 }
+        ]
+      }
+    };
+
+    const DECIS_HOMENS = [
+      { d: 1, swipe: 3.79, mr: 11.85 },
+      { d: 2, swipe: 9.50, mr: 7.35 },
+      { d: 3, swipe: 15.49, mr: 5.60 },
+      { d: 4, swipe: 21.83, mr: 4.34 },
+      { d: 5, swipe: 28.54, mr: 4.31 },
+      { d: 6, swipe: 35.85, mr: 4.18 },
+      { d: 7, swipe: 43.76, mr: 3.64 },
+      { d: 8, swipe: 53.50, mr: 3.76 },
+      { d: 9, swipe: 65.67, mr: 3.48 },
+      { d: 10, swipe: 85.67, mr: 3.95 }
+    ];
+
+    const DECIS_MULHERES = [
+      { d: 1, swipe: 0.58, mr: 62.01 },
+      { d: 2, swipe: 1.41, mr: 52.80 },
+      { d: 3, swipe: 2.15, mr: 46.41 },
+      { d: 4, swipe: 3.10, mr: 44.64 },
+      { d: 5, swipe: 4.29, mr: 42.68 },
+      { d: 6, swipe: 5.73, mr: 42.69 },
+      { d: 7, swipe: 7.80, mr: 42.24 },
+      { d: 8, swipe: 10.44, mr: 40.59 },
+      { d: 9, swipe: 14.87, mr: 35.52 },
+      { d: 10, swipe: 31.92, mr: 33.84 }
+    ];
+
+    // ==========================================
+    // 4. ESTADO DA APLICAÇÃO
+    // ==========================================
+    let paisAtivo = "PT";
+    let modoVisao = "mapa"; // 'mapa' ou 'cidade'
+
+    const ESTADO_INICIAL = {
+      autoGenero: "male",
+      alvoGenero: "female",
+      idadeMin: 20,
+      idadeMax: 35,
+      trava18: true,
+      disponibilidade: 33,
+      adesaoApps: 20,
+      decilKey: "d5",
+      bioKey: "short",
+      noJob: true,
+      noEdu: true,
+      limitHit: false,
+      timingOpt: true,
+      matchRate: 4.31,
+      longoPrazo: 20.0,
+      estetica: 25,
+      socializacao: 40,
+      gostosComum: 20,
+      fatorRenda: 1.0,
+      cidadePopPT: 545900, // Lisboa default
+      cidadePopBR: 11451000, // São Paulo default
+      regioesPT: JSON.parse(JSON.stringify(PAISES["PT"].regioes)),
+      regioesBR: JSON.parse(JSON.stringify(PAISES["BR"].regioes))
+    };
+
+    let estado = JSON.parse(JSON.stringify(ESTADO_INICIAL));
+
+    let chartAtritoInstance = null;
+    let chartProfundidadeInstance = null;
+    let chartDiasInstance = null;
+    let chartMesesInstance = null;
+    let chartDecisInstance = null;
+    let chartIdadeMRInstance = null;
+
+    // ==========================================
+    // 5. SELEÇÃO DE PAÍS & CIDADE
+    // ==========================================
+    function selecionarPais(codigo) {
+      paisAtivo = codigo;
+      const conf = PAISES[codigo];
+
+      document.getElementById("btn-country-PT").className = codigo === "PT"
+        ? "country-pill active px-4 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300 transition"
+        : "country-pill px-4 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300 transition";
+      document.getElementById("btn-country-BR").className = codigo === "BR"
+        ? "country-pill active px-4 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300 transition"
+        : "country-pill px-4 py-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300 transition";
+
+      document.getElementById("header-pop-badge").innerText = `${conf.nome} 2026 (N = ${conf.populacaoTotal.toLocaleString('pt-PT')}) | 5 Escalões`;
+      document.getElementById("country-context-tag").innerText = conf.contextTag;
+      document.getElementById("label-renda-titulo").innerText = codigo === "PT" ? "5 Quintis de Rendimento (INE)" : "5 Classes Sociais (FGV / ABEP)";
+
+      document.getElementById("svg-map-PT").classList.toggle("hidden", codigo !== "PT");
+      document.getElementById("svg-map-BR").classList.toggle("hidden", codigo !== "BR");
+
+      renderizarEscaloesRenda();
+      renderizarOpcoesCidades();
+      atualizarCoresMapa();
+      atualizarModelo();
+    }
+
+    function setModoVisao(modo) {
+      modoVisao = modo;
+      const btnMap = document.getElementById("btn-view-map");
+      const btnCity = document.getElementById("btn-view-city");
+      const cMap = document.getElementById("container-view-map");
+      const cCity = document.getElementById("container-view-city");
+      const mapControls = document.getElementById("map-controls-bar");
+
+      if (modo === 'mapa') {
+        btnMap.className = "view-pill active px-3 py-1 rounded text-[11px] font-semibold transition";
+        btnCity.className = "view-pill px-3 py-1 rounded text-[11px] text-slate-400 transition hover:text-white";
+        cMap.classList.remove("hidden");
+        cCity.classList.add("hidden");
+        mapControls.classList.remove("hidden");
+      } else {
+        btnCity.className = "view-pill active px-3 py-1 rounded text-[11px] font-semibold transition";
+        btnMap.className = "view-pill px-3 py-1 rounded text-[11px] text-slate-400 transition hover:text-white";
+        cCity.classList.remove("hidden");
+        cMap.classList.add("hidden");
+        mapControls.classList.add("hidden");
+      }
+
+      atualizarModelo();
+    }
+
+    function renderizarOpcoesCidades() {
+      const select = document.getElementById("select-city");
+      select.innerHTML = "";
+      const cidades = CIDADES_PRESET[paisAtivo];
+
+      cidades.forEach((cid, idx) => {
+        const opt = document.createElement("option");
+        opt.value = cid.pop;
+        opt.innerText = `${cid.nome} (${cid.pop.toLocaleString('pt-PT')} hab.)`;
+        if (idx === (paisAtivo === "PT" ? 3 : 4)) opt.selected = true; // Lisboa ou São Paulo
+        select.appendChild(opt);
+      });
+
+      const optCustom = document.createElement("option");
+      optCustom.value = "custom";
+      optCustom.innerText = "✍️ Personalizada / Outra População...";
+      select.appendChild(optCustom);
+
+      const popDefault = paisAtivo === "PT" ? estado.cidadePopPT : estado.cidadePopBR;
+      document.getElementById("input-city-pop").value = popDefault;
+      document.getElementById("city-pop-display").innerText = popDefault.toLocaleString('pt-PT');
+      document.getElementById("city-model-name").innerText = `${PAISES[paisAtivo].nome} (${paisAtivo === 'PT' ? '5 Quintis INE' : 'Classes A–E ABEP'})`;
+    }
+
+    function selecionarCidadePreset(val) {
+      if (val === "custom") {
+        document.getElementById("input-city-pop").focus();
+        return;
+      }
+      const num = parseInt(val);
+      if (paisAtivo === "PT") estado.cidadePopPT = num;
+      else estado.cidadePopBR = num;
+
+      document.getElementById("input-city-pop").value = num;
+      document.getElementById("city-pop-display").innerText = num.toLocaleString('pt-PT');
+      atualizarModelo();
+    }
+
+    function alterarPopCidadeManual(val) {
+      const num = Math.max(100, parseInt(val) || 0);
+      if (paisAtivo === "PT") estado.cidadePopPT = num;
+      else estado.cidadePopBR = num;
+
+      document.getElementById("city-pop-display").innerText = num.toLocaleString('pt-PT');
+      document.getElementById("select-city").value = "custom";
+      atualizarModelo();
+    }
+
+    function renderizarEscaloesRenda() {
+      const container = document.getElementById("container-renda-escaloes");
+      container.innerHTML = "";
+      const escaloes = PAISES[paisAtivo].escaloesRenda;
+
+      escaloes.forEach(esc => {
+        const lbl = document.createElement("label");
+        lbl.className = "theme-subcard hover:opacity-80 p-1 rounded border cursor-pointer block";
+        lbl.style.borderColor = "var(--border-color)";
+        lbl.title = esc.desc;
+        lbl.innerHTML = `
+          <input type="checkbox" name="renda" value="${esc.val}" checked onchange="atualizarModelo()" class="block mx-auto mb-1">
+          ${esc.rotulo}
+        `;
+        container.appendChild(lbl);
+      });
+    }
+
+    function getRegioesAtivas() {
+      return paisAtivo === "PT" ? estado.regioesPT : estado.regioesBR;
+    }
+
+    function alternarRegiao(cod) {
+      const reg = getRegioesAtivas();
+      reg[cod].ativa = !reg[cod].ativa;
+      atualizarCoresMapa();
+      atualizarModelo();
+    }
+
+    function toggleTodasRegioes(status) {
+      const reg = getRegioesAtivas();
+      Object.keys(reg).forEach(c => reg[c].ativa = status);
+      atualizarCoresMapa();
+      atualizarModelo();
+    }
+
+    function atualizarCoresMapa() {
+      const reg = getRegioesAtivas();
+      Object.keys(reg).forEach(cod => {
+        const el = document.getElementById(`nuts-${paisAtivo}-${cod}`);
+        if (el) {
+          el.setAttribute("fill", reg[cod].ativa ? "#0284c7" : "#1e293b");
+          el.setAttribute("stroke", reg[cod].ativa ? "#0f172a" : "#334155");
+        }
+      });
+    }
+
+    // ==========================================
+    // 6. CONTROLADORES, TRAVA 18+ E REATIVIDADE
+    // ==========================================
+    function toggleTrava18() {
+      estado.trava18 = !estado.trava18;
+      const btn = document.getElementById("btn-lock-18");
+      const icon = document.getElementById("lock-icon");
+      const text = document.getElementById("lock-text");
+      const minEl = document.getElementById("idade-min");
+
+      if (estado.trava18) {
+        btn.className = "px-2 py-0.5 rounded border border-amber-500/50 bg-amber-500/10 text-amber-300 font-mono text-[10px] font-semibold flex items-center gap-1 transition";
+        icon.innerText = "🔒";
+        text.innerText = DICIONARIO[idiomaAtual].lockActive;
+        minEl.min = "18";
+        if (estado.idadeMin < 18) {
+          estado.idadeMin = 18;
+          minEl.value = "18";
+          document.getElementById("val-idade-min").innerText = "18";
+        }
+      } else {
+        btn.className = "px-2 py-0.5 rounded border border-slate-700 bg-slate-800 text-slate-400 font-mono text-[10px] font-semibold flex items-center gap-1 transition";
+        icon.innerText = "🔓";
+        text.innerText = DICIONARIO[idiomaAtual].lockFree;
+        minEl.min = "0";
+      }
+
+      document.getElementById("label-idade").innerText = `${estado.idadeMin} - ${estado.idadeMax} anos`;
+      atualizarModelo();
+    }
+
+    function setAutoGenero(g) {
+      estado.autoGenero = g;
+      document.getElementById("btn-auto-male").className = g === 'male' 
+        ? "p-1.5 rounded border border-blue-600 bg-blue-600 text-white font-medium" 
+        : "p-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300";
+      document.getElementById("btn-auto-female").className = g === 'female' 
+        ? "p-1.5 rounded border border-blue-600 bg-blue-600 text-white font-medium" 
+        : "p-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300";
+
+      if (g === 'male') setAlvoGenero('female');
+      else setAlvoGenero('male');
+
+      recalcularMatchRateEmpirico();
+    }
+
+    function setAlvoGenero(g) {
+      estado.alvoGenero = g;
+      ['female', 'male', 'ambos'].forEach(tipo => {
+        const btn = document.getElementById(`btn-alvo-${tipo}`);
+        btn.className = (tipo === g)
+          ? "p-1.5 rounded border border-blue-600 bg-blue-600 text-white font-medium"
+          : "p-1.5 rounded border border-slate-700 bg-slate-800 text-slate-300";
+      });
+      atualizarModelo();
+    }
+
+    function sincronizarIdades(origem) {
+      let minEl = document.getElementById("idade-min");
+      let maxEl = document.getElementById("idade-max");
+      let iMin = parseInt(minEl.value);
+      let iMax = parseInt(maxEl.value);
+
+      if (estado.trava18 && iMin < 18) {
+        iMin = 18;
+        minEl.value = 18;
+      }
+
+      if (origem === 'min' && iMin > iMax) {
+        maxEl.value = iMin;
+        iMax = iMin;
+      } else if (origem === 'max' && iMax < iMin) {
+        minEl.value = iMax;
+        iMin = iMax;
+      }
+
+      estado.idadeMin = iMin;
+      estado.idadeMax = iMax;
+      document.getElementById("val-idade-min").innerText = iMin;
+      document.getElementById("val-idade-max").innerText = iMax;
+      document.getElementById("label-idade").innerText = `${iMin} - ${iMax} anos`;
+
+      atualizarModelo();
+    }
+
+    function alterarDecil(val) {
+      estado.decilKey = val;
+      recalcularMatchRateEmpirico();
+    }
+
+    function alterarBio(val) {
+      estado.bioKey = val;
+      recalcularMatchRateEmpirico();
+    }
+
+    function alterarAtributoPerfil() {
+      estado.noJob = document.getElementById("chk-no-job").checked;
+      estado.noEdu = document.getElementById("chk-no-edu").checked;
+      estado.limitHit = document.getElementById("chk-limit-hit").checked;
+      estado.timingOpt = document.getElementById("chk-timing-opt").checked;
+      recalcularMatchRateEmpirico();
+    }
+
+    function recalcularMatchRateEmpirico() {
+      const idx = parseInt(estado.decilKey.replace("d", "")) - 1;
+      let mrBase = estado.autoGenero === 'male' ? DECIS_HOMENS[idx].mr : DECIS_MULHERES[idx].mr;
+      let multiplicadorTotal = 1.0;
+
+      if (estado.autoGenero === 'male') {
+        const bioKey = document.getElementById("select-bio").value;
+        if (bioKey === 'short') {
+          multiplicadorTotal *= (6.87 / 5.22);
+        } else if (bioKey === 'empty') {
+          multiplicadorTotal *= (5.34 / 5.22);
+        } else if (bioKey === 'long') {
+          multiplicadorTotal *= (3.97 / 5.22);
+        } else if (bioKey === 'very_long') {
+          multiplicadorTotal *= (3.96 / 5.22);
+        }
+
+        if (document.getElementById("chk-no-job").checked) {
+          multiplicadorTotal *= 1.385;
+        }
+        if (document.getElementById("chk-no-edu").checked) {
+          multiplicadorTotal *= 1.374;
+        }
+        if (document.getElementById("chk-limit-hit").checked) {
+          multiplicadorTotal *= 1.80;
+        }
+        if (document.getElementById("chk-timing-opt").checked) {
+          multiplicadorTotal *= 1.05;
+        }
+      } else {
+        const bioKey = document.getElementById("select-bio").value;
+        if (bioKey === 'short') multiplicadorTotal *= (46.28 / 44.41);
+        else if (bioKey === 'empty') multiplicadorTotal *= (42.95 / 44.41);
+      }
+
+      mrBase *= multiplicadorTotal;
+      const badgeEl = document.getElementById("badge-multiplicador");
+      if (badgeEl) badgeEl.innerText = `${multiplicadorTotal.toFixed(2)}x Base`;
+
+      estado.matchRate = Math.max(0.1, Math.round(mrBase * 100) / 100);
+      
+      const sMatch = document.getElementById("slider-match");
+      if (sMatch) sMatch.value = estado.matchRate;
+      const lMatch = document.getElementById("label-match");
+      if (lMatch) lMatch.innerText = `${estado.matchRate.toFixed(2)}%`;
+
+      const dsMatch = document.getElementById("drag-slider-match");
+      if (dsMatch) dsMatch.value = estado.matchRate;
+      const dvMatch = document.getElementById("drag-val-match");
+      if (dvMatch) dvMatch.innerText = `${estado.matchRate.toFixed(2)}%`;
+
+      atualizarModelo();
+    }
+
+    function sincronizarDisp(val) {
+      const v = parseFloat(val);
+      estado.disponibilidade = v;
+
+      const el1 = document.getElementById("slider-disp");
+      if (el1) el1.value = v;
+      const el2 = document.getElementById("drag-slider-disp");
+      if (el2) el2.value = v;
+
+      const lbl1 = document.getElementById("label-disp");
+      if (lbl1) lbl1.innerText = `${v}%`;
+      const lbl2 = document.getElementById("drag-val-disp");
+      if (lbl2) lbl2.innerText = `${v}%`;
+
+      atualizarModelo();
+    }
+
+    function sincronizarApps(val) {
+      const v = parseFloat(val);
+      estado.adesaoApps = v;
+
+      const el1 = document.getElementById("slider-apps");
+      if (el1) el1.value = v;
+      const el2 = document.getElementById("drag-slider-apps");
+      if (el2) el2.value = v;
+
+      const lbl1 = document.getElementById("label-apps");
+      if (lbl1) lbl1.innerText = `${v}%`;
+      const lbl2 = document.getElementById("drag-val-apps");
+      if (lbl2) lbl2.innerText = `${v}%`;
+
+      atualizarModelo();
+    }
+
+    function sincronizarLongoPrazo(val) {
+      const v = parseFloat(val);
+      estado.longoPrazo = v;
+
+      const el = document.getElementById("slider-longterm");
+      if (el) el.value = v;
+      const lbl = document.getElementById("label-longterm");
+      if (lbl) lbl.innerText = `${v.toFixed(1)}%`;
+
+      atualizarModelo();
+    }
+
+    function sincronizarMatchRate(val) {
+      const v = parseFloat(val);
+      estado.matchRate = v;
+
+      const el1 = document.getElementById("slider-match");
+      if (el1) el1.value = v;
+      const el2 = document.getElementById("drag-slider-match");
+      if (el2) el2.value = v;
+
+      const lbl1 = document.getElementById("label-match");
+      if (lbl1) lbl1.innerText = `${v.toFixed(2)}%`;
+      const lbl2 = document.getElementById("drag-val-match");
+      if (lbl2) lbl2.innerText = `${v.toFixed(2)}%`;
+
+      atualizarModelo();
+    }
+
+    function sincronizarEstetica(val) {
+      const v = parseFloat(val);
+      estado.estetica = v;
+
+      const el1 = document.getElementById("slider-estetica");
+      if (el1) el1.value = v;
+      const el2 = document.getElementById("drag-slider-estetica");
+      if (el2) el2.value = v;
+
+      const lbl1 = document.getElementById("label-estetica");
+      if (lbl1) lbl1.innerText = `${v}%`;
+      const lbl2 = document.getElementById("drag-val-estetica");
+      if (lbl2) lbl2.innerText = `${v}%`;
+
+      atualizarModelo();
+    }
+
+    function sincronizarSocial(val) {
+      const v = parseFloat(val);
+      estado.socializacao = v;
+      const lbl = document.getElementById("label-social");
+      if (lbl) lbl.innerText = `${v}%`;
+      atualizarModelo();
+    }
+
+    function sincronizarGostos(val) {
+      const v = parseFloat(val);
+      estado.gostosComum = v;
+      const lbl = document.getElementById("label-gostos");
+      if (lbl) lbl.innerText = `${v}%`;
+      atualizarModelo();
+    }
+
+    function mudarAba(aba) {
+      ['bemvindo', 'probabilidade', 'conversas', 'temporais', 'swipestats'].forEach(t => {
+        const tabEl = document.getElementById(`tab-${t}`);
+        if (tabEl) {
+          tabEl.classList.remove('active');
+          tabEl.classList.add('text-slate-400');
+        }
+        const contEl = document.getElementById(`conteudo-${t}`);
+        if (contEl) contEl.classList.add('hidden');
+      });
+
+      const selTab = document.getElementById(`tab-${aba}`);
+      if (selTab) {
+        selTab.classList.add('active');
+        selTab.classList.remove('text-slate-400');
+      }
+      const selCont = document.getElementById(`conteudo-${aba}`);
+      if (selCont) selCont.classList.remove('hidden');
+
+      setTimeout(() => {
+        if (aba === 'conversas' && chartProfundidadeInstance) chartProfundidadeInstance.update();
+        if (aba === 'temporais' && chartDiasInstance) { chartDiasInstance.update(); chartMesesInstance.update(); }
+        if (aba === 'swipestats' && chartDecisInstance) { chartDecisInstance.update(); chartIdadeMRInstance.update(); }
+      }, 50);
+    }
+
+    // ==========================================
+    // 7. MOTOR DE CÁLCULO ESTOCÁSTICO
+    // ==========================================
+    function atualizarModelo() {
+      const confPais = PAISES[paisAtivo];
+
+      let popGeo = 0;
+      if (modoVisao === 'cidade') {
+        popGeo = paisAtivo === 'PT' ? estado.cidadePopPT : estado.cidadePopBR;
+      } else {
+        const reg = getRegioesAtivas();
+        popGeo = Object.values(reg)
+          .filter(r => r.ativa)
+          .reduce((sum, r) => sum + r.pop, 0);
+      }
+
+      const dadosAnuais = confPais.dadosAnuais;
+      let pctDemo = 0;
+      for (let i = estado.idadeMin; i <= estado.idadeMax; i++) {
+        const ano = dadosAnuais[i];
+        if (estado.alvoGenero === "male" || estado.alvoGenero === "ambos") pctDemo += ano.m_pct;
+        if (estado.alvoGenero === "female" || estado.alvoGenero === "ambos") pctDemo += ano.w_pct;
+      }
+
+      const checksRenda = document.querySelectorAll('input[name="renda"]:checked');
+      let somaRenda = 0;
+      checksRenda.forEach(c => somaRenda += parseFloat(c.value));
+      estado.fatorRenda = Math.round(somaRenda * 1000) / 1000;
+      
+      const lblRenda = document.getElementById("label-renda-fator");
+      if (lblRenda) lblRenda.innerText = `${(estado.fatorRenda * 100).toFixed(1)}% elegível`;
+
+      const dispFator = estado.disponibilidade / 100.0;
+      const appsFator = estado.adesaoApps / 100.0;
+      const esteticaFator = estado.estetica / 100.0;
+      const socialFator = estado.socializacao / 100.0;
+      const gostosFator = estado.gostosComum / 100.0;
+      const matchFator = estado.matchRate / 100.0;
+      const longoPrazoFator = estado.longoPrazo / 100.0;
+
+      const s1_Geo = popGeo;
+      const s2_Demo = Math.round(s1_Geo * (pctDemo / 100.0));
+      const s3_Renda = Math.round(s2_Demo * estado.fatorRenda);
+      const s4_Disp = Math.round(s3_Renda * dispFator);
+      const s5_Apps = Math.round(s4_Disp * appsFator);
+      const s6_Subjetivo = Math.round(s5_Apps * esteticaFator * socialFator * gostosFator);
+      const s7_Matches = Math.round(s6_Subjetivo * matchFator);
+      const s8_Final = Math.round(s7_Matches * longoPrazoFator);
+
+      document.getElementById("kpi-geo").innerText = s1_Geo.toLocaleString('pt-PT');
+      document.getElementById("kpi-geo-pct").innerText = modoVisao === 'cidade' 
+        ? `${((s1_Geo / confPais.populacaoTotal) * 100).toFixed(2)}% do país`
+        : `${((s1_Geo / confPais.populacaoTotal) * 100).toFixed(1)}% nacional`;
+
+      document.getElementById("kpi-demo").innerText = s2_Demo.toLocaleString('pt-PT');
+      document.getElementById("kpi-demo-pct").innerText = `${s1_Geo > 0 ? ((s2_Demo / s1_Geo) * 100).toFixed(1) : 0}% da base`;
+
+      document.getElementById("kpi-apps").innerText = s5_Apps.toLocaleString('pt-PT');
+      document.getElementById("kpi-apps-pct").innerText = `${((s5_Apps / (s2_Demo || 1)) * 100).toFixed(1)}% do grupo`;
+
+      document.getElementById("kpi-subjetivo").innerText = s6_Subjetivo.toLocaleString('pt-PT');
+      document.getElementById("kpi-subjetivo-pct").innerText = `${((s6_Subjetivo / (s5_Apps || 1)) * 100).toFixed(2)}% compatíveis`;
+
+      document.getElementById("kpi-matches").innerText = s7_Matches.toLocaleString('pt-PT');
+      document.getElementById("kpi-matches-pct").innerText = `${estado.matchRate.toFixed(2)}% MR`;
+
+      document.getElementById("kpi-final").innerText = s8_Final.toLocaleString('pt-PT');
+      document.getElementById("kpi-final-pct").innerText = `${((s8_Final / (s1_Geo || 1)) * 100).toFixed(4)}% da base`;
+
+      const pMatchUnitario = matchFator;
+      const esperancaSwipes = pMatchUnitario > 0 ? Math.round(1 / pMatchUnitario) : 0;
+      const elGeo = document.getElementById("stat-geo-swipes");
+      if (elGeo) elGeo.innerText = `${esperancaSwipes} swipes`;
+
+      const prob50 = (1 - Math.pow(1 - pMatchUnitario, 50)) * 100;
+      const elP50 = document.getElementById("stat-geo-50");
+      if (elP50) elP50.innerText = `${prob50.toFixed(1)}%`;
+
+      const n = 100;
+      const expBinom = (n * pMatchUnitario).toFixed(1);
+      const elBinomExp = document.getElementById("stat-binom-exp");
+      if (elBinomExp) elBinomExp.innerText = `${expBinom} matches`;
+
+      const p0 = Math.pow(1 - pMatchUnitario, n);
+      const p1 = n * pMatchUnitario * Math.pow(1 - pMatchUnitario, n - 1);
+      const p2 = (n * (n - 1) / 2) * Math.pow(pMatchUnitario, 2) * Math.pow(1 - pMatchUnitario, n - 2);
+      const probAtLeast3 = Math.max(0, (1 - (p0 + p1 + p2)) * 100);
+      const elBinomP = document.getElementById("stat-binom-p");
+      if (elBinomP) elBinomP.innerText = `${probAtLeast3.toFixed(1)}%`;
+
+      const pBayes = (s8_Final / (s1_Geo || 1)) * 100;
+      const elBayesP = document.getElementById("stat-bayes-p");
+      if (elBayesP) elBayesP.innerText = `${pBayes.toFixed(6)}%`;
+      
+      const ratioFinal = s8_Final > 0 ? Math.round(s1_Geo / s8_Final) : 0;
+      const elBayesRatio = document.getElementById("stat-bayes-ratio");
+      if (elBayesRatio) elBayesRatio.innerText = ratioFinal > 0 ? `1 em ${ratioFinal.toLocaleString('pt-PT')}` : "0";
+
+      atualizarGraficosAtrito([s1_Geo, s2_Demo, s3_Renda, s4_Disp, s5_Apps, s6_Subjetivo, s7_Matches, s8_Final]);
+    }
+
+    // ==========================================
+    // 8. INICIALIZAÇÃO DE GRÁFICOS (CHART.JS)
+    // ==========================================
+    function inicializarGraficos() {
+      const gridColor = temaEscuro ? "#1e293b" : "#e2e8f0";
+      const tickColor = temaEscuro ? "#64748b" : "#475569";
+
+      const ctxAtrito = document.getElementById("chartAtrito").getContext("2d");
+      chartAtritoInstance = new Chart(ctxAtrito, {
+        data: {
+          labels: ["Base Local", "Demografia", "Renda", "Disponíveis", "Apps", "Afinidade", "Matches", "Final"],
+          datasets: [
+            {
+              type: "line",
+              label: "Trajetória",
+              data: new Array(8).fill(0),
+              borderColor: "#38bdf8",
+              backgroundColor: "#38bdf8",
+              borderWidth: 2,
+              tension: 0.2,
+              pointRadius: 4,
+              yAxisID: "y"
+            },
+            {
+              type: "bar",
+              label: "População",
+              data: new Array(8).fill(0),
+              backgroundColor: ["#334155", "#0284c7", "#475569", "#6366f1", "#4f46e5", "#a855f7", "#f59e0b", "#10b981"],
+              borderRadius: 3,
+              yAxisID: "y"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 9 }, callback: v => v >= 1e6 ? (v/1e6).toFixed(1) + 'M' : (v/1e3).toFixed(0) + 'k' } },
+            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 9 } } }
+          }
+        }
+      });
+
+      const ctxProf = document.getElementById("chartProfundidade").getContext("2d");
+      chartProfundidadeInstance = new Chart(ctxProf, {
+        type: "bar",
+        data: {
+          labels: ["0 msgs", "1 msg", "2-5 msgs", "6-10 msgs", "11-20 msgs", "21-50 msgs", "50+ msgs"],
+          datasets: [
+            { label: "Homens %", data: [10.96, 32.44, 30.73, 10.93, 7.72, 5.14, 2.09], backgroundColor: "#38bdf8" },
+            { label: "Mulheres %", data: [30.80, 22.41, 23.79, 9.51, 6.94, 4.71, 1.84], backgroundColor: "#ec4899" }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: tickColor, font: { size: 9 } } } },
+          scales: {
+            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 9 }, callback: v => v + '%' } },
+            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 8 } } }
+          }
+        }
+      });
+
+      const ctxDias = document.getElementById("chartDias").getContext("2d");
+      chartDiasInstance = new Chart(ctxDias, {
+        type: "line",
+        data: {
+          labels: ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"],
+          datasets: [
+            { label: "Homens MR %", data: [2.54, 2.50, 2.48, 2.49, 2.51, 2.44, 2.47], borderColor: "#38bdf8", tension: 0.3 },
+            { label: "Mulheres MR %", data: [30.63, 30.35, 30.15, 30.45, 30.90, 29.91, 30.10], borderColor: "#ec4899", tension: 0.3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: tickColor, font: { size: 9 } } } },
+          scales: {
+            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 9 }, callback: v => v + '%' } },
+            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 9 } } }
+          }
+        }
+      });
+
+      const ctxMeses = document.getElementById("chartMeses").getContext("2d");
+      chartMesesInstance = new Chart(ctxMeses, {
+        type: "bar",
+        data: {
+          labels: ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"],
+          datasets: [
+            { label: "Homens MR %", data: [2.41, 2.36, 2.32, 2.59, 2.42, 2.52, 2.58, 2.55, 2.61, 2.59, 2.50, 2.41], backgroundColor: "#38bdf8" },
+            { label: "Mulheres MR %", data: [30.50, 31.99, 29.73, 31.59, 32.61, 32.20, 28.64, 30.61, 29.18, 28.56, 30.29, 27.77], backgroundColor: "#ec4899" }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: tickColor, font: { size: 9 } } } },
+          scales: {
+            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 8 }, callback: v => v + '%' } },
+            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 8 } } }
+          }
+        }
+      });
+
+      const ctxDecis = document.getElementById("chartDecis").getContext("2d");
+      chartDecisInstance = new Chart(ctxDecis, {
+        type: "bar",
+        data: {
+          labels: DECIS_HOMENS.map(d => `D${d.d} (${d.swipe}%)`),
+          datasets: [
+            { label: "Match Rate %", data: DECIS_HOMENS.map(d => d.mr), backgroundColor: "#38bdf8", borderRadius: 3 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 9 }, callback: v => v + '%' } },
+            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 8 } } }
+          }
+        }
+      });
+
+      const ctxIdade = document.getElementById("chartIdadeMR").getContext("2d");
+      chartIdadeMRInstance = new Chart(ctxIdade, {
+        type: "line",
+        data: {
+          labels: ["18-21", "22-25", "26-29", "30-34", "35-39", "40-44", "45+"],
+          datasets: [
+            { label: "Homens MR %", data: [7.54, 5.49, 5.29, 4.17, 3.78, 3.87, 4.68], borderColor: "#38bdf8", tension: 0.2 },
+            { label: "Mulheres MR %", data: [43.03, 42.66, 45.98, 42.70, 51.42, 55.36, 38.31], borderColor: "#ec4899", tension: 0.2 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: tickColor, font: { size: 9 } } } },
+          scales: {
+            y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 8 }, callback: v => v + '%' } },
+            x: { grid: { display: false }, ticks: { color: tickColor, font: { size: 8 } } }
+          }
+        }
+      });
+    }
+
+    function atualizarGraficosAtrito(valores) {
+      if (chartAtritoInstance) {
+        chartAtritoInstance.data.datasets[0].data = valores;
+        chartAtritoInstance.data.datasets[1].data = valores;
+        chartAtritoInstance.update();
+      }
+    }
+
+    function resetSecao(s) {
+      if (s === 'demografia') {
+        estado.idadeMin = ESTADO_INICIAL.idadeMin;
+        estado.idadeMax = ESTADO_INICIAL.idadeMax;
+        document.getElementById("idade-min").value = estado.idadeMin;
+        document.getElementById("idade-max").value = estado.idadeMax;
+        document.getElementById("val-idade-min").innerText = estado.idadeMin;
+        document.getElementById("val-idade-max").innerText = estado.idadeMax;
+        document.getElementById("label-idade").innerText = `${estado.idadeMin} - ${estado.idadeMax} anos`;
+        document.querySelectorAll('input[name="renda"]').forEach(c => c.checked = true);
+        estado.regioesPT = JSON.parse(JSON.stringify(PAISES["PT"].regioes));
+        estado.regioesBR = JSON.parse(JSON.stringify(PAISES["BR"].regioes));
+        atualizarCoresMapa();
+      } else if (s === 'perfil') {
+        estado.decilKey = ESTADO_INICIAL.decilKey;
+        document.getElementById("select-decil").value = estado.decilKey;
+        document.getElementById("select-bio").value = "short";
+        document.getElementById("chk-no-job").checked = true;
+        document.getElementById("chk-no-edu").checked = true;
+        document.getElementById("chk-limit-hit").checked = false;
+        document.getElementById("chk-timing-opt").checked = true;
+        sincronizarDisp(ESTADO_INICIAL.disponibilidade);
+        sincronizarApps(ESTADO_INICIAL.adesaoApps);
+        sincronizarLongoPrazo(ESTADO_INICIAL.longoPrazo);
+        recalcularMatchRateEmpirico();
+      } else if (s === 'pessoais') {
+        sincronizarEstetica(ESTADO_INICIAL.estetica);
+        sincronizarSocial(ESTADO_INICIAL.socializacao);
+        sincronizarGostos(ESTADO_INICIAL.gostosComum);
+      }
+      atualizarModelo();
+    }
+
+    function resetGlobal() {
+      estado = JSON.parse(JSON.stringify(ESTADO_INICIAL));
+      setAutoGenero(estado.autoGenero);
+      setAlvoGenero(estado.alvoGenero);
+      setModoVisao('mapa');
+      selecionarPais("PT");
+      resetSecao('demografia');
+      resetSecao('perfil');
+      resetSecao('pessoais');
+      mudarAba('bemvindo');
+      atualizarModelo();
+    }
+
+    window.addEventListener("DOMContentLoaded", () => {
+      renderizarEscaloesRenda();
+      renderizarOpcoesCidades();
+      atualizarCoresMapa();
+      inicializarGraficos();
+      recalcularMatchRateEmpirico();
+      atualizarModelo();
+    });
+  </script>
+</body>
+</html>
